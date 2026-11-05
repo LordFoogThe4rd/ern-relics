@@ -9,4 +9,16 @@ function(add_core_check name source labels target)
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" LABELS "${labels}" TIMEOUT 30)
 endfunction()
 
+add_core_check(signatures game/pattern_tests.cpp "core;game" ern_game_memory)
+
+add_core_check(relic_reader game/reader_tests.cpp "core;game;memory" ern_game_memory)
+
+add_core_check(relic_writer game/writer_tests.cpp "core;game;memory" ern_game_memory)
+
+add_core_check(relic_equip game/equip_tests.cpp "core;game;memory" ern_game_memory)
+
 add_core_check(relic_validation relics/validation_tests.cpp "core;relics;rules" ern_relic_model)
+
+add_core_check(presets relics/preset_tests.cpp "core;relics;presets" ern_game_memory)
+
+add_core_check(drafts relics/draft_tests.cpp "core;relics;drafts" ern_game_memory)

@@ -42,11 +42,19 @@ add_library(ern_relic_model STATIC
     src/relics/preset.cpp)
 target_include_directories(ern_relic_model PUBLIC src)
 
+add_library(ern_game_memory STATIC
+    src/game/pattern.cpp
+    src/game/relic_reader.cpp
+    src/game/edit_location.cpp
+    src/game/relic_equipment.cpp
+    src/game/relic_writer.cpp)
+target_link_libraries(ern_game_memory PUBLIC ern_relic_model)
+
 # Keep explicit build inputs while rejecting forgotten or stale source registrations.
 # Collect sources before tests add integration/dll_fixture.cpp to ern_relics.
 file(GLOB_RECURSE project_sources CONFIGURE_DEPENDS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "src/*.cpp")
 set(registered_sources)
-foreach(target ern_relic_model)
+foreach(target ern_relic_model ern_game_memory)
     ern_configure_target(${target})
     get_target_property(target_sources ${target} SOURCES)
     list(APPEND registered_sources ${target_sources})
