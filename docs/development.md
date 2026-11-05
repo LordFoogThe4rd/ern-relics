@@ -110,8 +110,14 @@ Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
 
 [Release Please](https://github.com/googleapis/release-please-action) is configured
 in [release-please-config.json](../release-please-config.json) and maintains a
-release PR for `main`. Run **CI > Run workflow** on the release PR's branch
-before merging.
+release PR for `main`. In the repository's **Settings > Actions > General >
+Workflow permissions**, enable **Allow GitHub Actions to create and approve pull
+requests**. Keep the default workflow permissions read-only. The release job
+requests its own write permissions and uses `GITHUB_TOKEN`, so no personal access
+token is required.
+
+PRs created with `GITHUB_TOKEN` do not trigger CI automatically. Run **CI > Run
+workflow** on the release PR's branch before merging.
 
 Merging the release PR creates a `v<version>` tag and GitHub Release. The
 [Release workflow](../.github/workflows/release.yml) runs on pushes to `main` or
