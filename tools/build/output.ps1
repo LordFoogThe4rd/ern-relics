@@ -59,9 +59,17 @@ function Write-BuildOutput {
         }
         # Validation throws on failure. Its diagnostics must not become return values.
         if ($ValidatePackage) { & $ValidatePackage $stage | Out-Host }
-        # Replace only this package after staging and validation succeed.
-        Remove-GeneratedDirectory -Root $dist -Path $output
-        Move-Item -LiteralPath $stage -Destination $output
+        if ($Name -match '^ern-relics-\d+\.\d+\.\d+$') {
+            if (Test-Path -LiteralPath $output) {
+                throw "Release output already exists; it will not be replaced: $output"
+            }
+            # Directory.Move also refuses a destination created after the check.
+            [IO.Directory]::Move($stage, $output)
+        } else {
+            # Replace only this development package after validation succeeds.
+            Remove-GeneratedDirectory -Root $dist -Path $output
+            Move-Item -LiteralPath $stage -Destination $output
+        }
         return $output
     } finally {
         Remove-GeneratedDirectory -Root $dist -Path $stage

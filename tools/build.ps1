@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('debug', 'release', 'asan')][string]$Preset = 'release',
-    [ValidatePattern('^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$')][string]$Label,
+    [ValidatePattern('^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$')][string]$Label = 'dev',
     [string]$BuildDirectory,
     [ValidateRange(0, 1024)][int]$Jobs = 0
 )

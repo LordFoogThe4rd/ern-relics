@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 . (Join-Path $projectRoot 'tools/build/output.ps1')
 $fixture = New-TemporaryDirectory
-$stable = 'ern-relics-1.0.0'
+$stable = 'ern-relics-1.0.0-dev'
 $feature = 'ern-relics-1.0.0-some-new-feature'
 $dist = Join-Path $fixture 'dist'
 
@@ -60,6 +60,28 @@ try {
     Write-FixtureFile 'dist/old.zip' 'Old archive'
     Write-FixtureFile "dist/$stable/stale.log" 'Old log'
     $build = Join-Path $fixture 'compiler-output'
+    foreach ($script in @('build.ps1', 'check.ps1')) {
+        $command = Get-Command (Join-Path $projectRoot "tools/$script")
+        $label = $command.ScriptBlock.Ast.ParamBlock.Parameters |
+            Where-Object { $_.Name.VariablePath.UserPath -eq 'Label' }
+        if ($label.DefaultValue.SafeGetValue() -cne 'dev') {
+            throw "$script must default to development output."
+        }
+    }
+    # An explicit empty label must not overwrite a frozen versioned release either.
+    $release = 'ern-relics-1.0.0'
+    Write-BuildOutput -ProjectRoot $fixture -BuildDirectory $build -Name $release | Out-Null
+    Write-FixtureFile "dist/$release/preserve.txt" 'Frozen release marker'
+    Write-FixtureFile "dist/$release.zip" 'Frozen release archive'
+    Write-FixtureFile "dist/$release.zip.sha256" 'Frozen release checksum'
+    $released = Get-PackageSnapshot (Join-Path $dist $release)
+    $before = Get-DistSnapshot
+    Write-FixtureFile 'compiler-output/ern-relics.dll' 'Later development DLL'
+    Assert-Rejected {
+        Write-BuildOutput -ProjectRoot $fixture -BuildDirectory $build -Name $release
+    } '*Release output already exists*'
+    if ((Get-DistSnapshot) -cne $before) { throw 'A build changed preserved release output.' }
+    Write-FixtureFile 'compiler-output/ern-relics.dll' 'First DLL'
     $output = Write-BuildOutput -ProjectRoot $fixture -BuildDirectory $build -Name $stable
     if ($output -ne (Join-Path $dist $stable)) { throw 'Packaging returned the wrong directory.' }
     Assert-Package $stable
@@ -159,7 +181,12 @@ try {
         [IO.File]::ReadAllText((Join-Path $dist "$feature/ern-relics.dll")) -ne 'Latest DLL') {
         throw 'The feature build replaced another build or kept an older DLL.'
     }
-    Write-Host 'PASS: named packages coexist with other builds and ZIPs; staged validation publishes exact tested bytes and preserves previous output on failure; repeated writes, failed staging, traversal, and junction cleanup are safe.'
+    if ((Get-PackageSnapshot (Join-Path $dist $release)) -cne $released -or
+        [IO.File]::ReadAllText((Join-Path $dist "$release.zip")) -cne 'Frozen release archive' -or
+        [IO.File]::ReadAllText((Join-Path $dist "$release.zip.sha256")) -cne 'Frozen release checksum') {
+        throw 'Development builds changed a preserved release package, archive, or checksum.'
+    }
+    Write-Host 'PASS: build and check default to dev; versioned releases are preserved; named packages coexist with other builds and ZIPs; staged validation publishes exact tested bytes and preserves previous output on failure; repeated writes, failed staging, traversal, and junction cleanup are safe.'
 } finally {
     Remove-TemporaryDirectory $fixture
 }

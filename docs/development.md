@@ -32,6 +32,9 @@ The build runs CTest and checks the packaged DLL in the synthetic DX12 host.
 Output goes to `dist/ern-relics-<version>-dev/`. Reuse that directory while
 iterating. Keep installed configuration, presets, and journals elsewhere, since a
 rebuild replaces the package. Preserve versioned release packages and ZIPs.
+Both `build.ps1` and `check.ps1` default to the `dev` label. An explicit empty
+label creates an unlabelled package but refuses to replace an existing versioned
+release directory.
 
 Before finishing a code change, format the source and run the full check:
 
