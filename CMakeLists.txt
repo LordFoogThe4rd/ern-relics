@@ -42,6 +42,15 @@ foreach(archive DATA0 DATA1 DATA2 DATA3 DLC01)
     string(JSON ${archive}_KEY GET "${GAME_KEYS}" archives "${archive_name}")
 endforeach()
 configure_file(src/data/game_keys.hpp.in generated/game_keys.hpp @ONLY)
+set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/third_party/imgui")
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/bcdec/bcdec.h")
+    message(FATAL_ERROR "Run tools/bootstrap.ps1 to download the pinned BC texture decoder.")
+endif()
+if(NOT EXISTS "${IMGUI_DIR}/imgui.cpp")
+    message(FATAL_ERROR "Run tools/bootstrap.ps1 before configuring.")
+endif()
+
+add_subdirectory(third_party/minhook EXCLUDE_FROM_ALL)
 set(ZSTD_DIR "${CMAKE_SOURCE_DIR}/third_party/zstd/lib")
 if(NOT EXISTS "${ZSTD_DIR}/zstd.h")
     message(FATAL_ERROR "Run tools/bootstrap.ps1 to download the pinned Zstandard decoder.")
@@ -59,6 +68,17 @@ add_library(zstd_decoder STATIC
     ${ZSTD_DIR}/decompress/zstd_decompress_block.c)
 target_include_directories(zstd_decoder SYSTEM PUBLIC ${ZSTD_DIR})
 target_compile_definitions(zstd_decoder PRIVATE ZSTD_DISABLE_ASM)
+add_library(imgui STATIC
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_win32.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_dx12.cpp)
+target_include_directories(imgui SYSTEM PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends)
+target_compile_definitions(imgui PUBLIC UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+target_link_libraries(imgui PUBLIC d3d12 dxgi d3dcompiler dwmapi)
+
 # Project targets.
 add_library(ern_relic_model STATIC
     src/relics/effect_catalog.cpp
@@ -103,11 +123,28 @@ add_library(ern_application STATIC
 target_link_libraries(ern_application PUBLIC ern_game_memory ern_game_data)
 target_compile_definitions(ern_application PRIVATE ERN_VERSION="${PROJECT_VERSION}")
 
+add_library(ern_relics SHARED
+    src/app/dllmain.cpp
+    src/app/bootstrap.cpp
+    src/app/native_relic_equip.cpp
+    src/app/overlay.cpp
+    src/app/dx12_renderer.cpp
+    src/ui/ui.cpp
+    src/ui/editor.cpp
+    src/ui/effect_choices.cpp
+    src/ui/presets.cpp
+    src/ui/diagnostics.cpp
+    src/ui/widgets.cpp
+    src/app/input.cpp)
+set_target_properties(ern_relics PROPERTIES OUTPUT_NAME "ern-relics")
+target_link_libraries(ern_relics PRIVATE ern_application imgui minhook version dinput8 dxguid)
+target_compile_definitions(ern_relics PRIVATE ERN_VERSION="${PROJECT_VERSION}")
+
 # Keep explicit build inputs while rejecting forgotten or stale source registrations.
 # Collect sources before tests add integration/dll_fixture.cpp to ern_relics.
 file(GLOB_RECURSE project_sources CONFIGURE_DEPENDS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "src/*.cpp")
 set(registered_sources)
-foreach(target ern_relic_model ern_game_memory ern_game_data ern_application)
+foreach(target ern_relic_model ern_game_memory ern_game_data ern_application ern_relics)
     ern_configure_target(${target})
     get_target_property(target_sources ${target} SOURCES)
     list(APPEND registered_sources ${target_sources})

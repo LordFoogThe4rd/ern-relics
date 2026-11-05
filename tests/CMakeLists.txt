@@ -63,6 +63,22 @@ add_core_check(runtime_session app/runtime_session_tests.cpp "app;memory;session
 add_core_check(editor_application app/editor_application_tests.cpp "app;memory;presets;session" ern_application)
 
 add_core_check(render_lifecycle app/render_lifecycle_tests.cpp "app;graphics" ern_relic_model)
+
+add_core_check(ui_layout_and_groups ui/layout_tests.cpp "ui" ern_game_data)
+
+add_core_check(ui_rendering ui/render_tests.cpp "ui" ern_application)
+
+get_target_property(ui_sources ern_relics SOURCES)
+list(FILTER ui_sources INCLUDE REGEX "^src/ui/")
+list(TRANSFORM ui_sources PREPEND "${CMAKE_SOURCE_DIR}/")
+target_sources(ern_ui_rendering_tests PRIVATE ${ui_sources})
+target_link_libraries(ern_ui_rendering_tests PRIVATE imgui)
+
+add_core_check(effect_choices ui/effect_choices_tests.cpp "ui;relics" ern_game_data)
+set(choice_sources ${ui_sources})
+list(FILTER choice_sources INCLUDE REGEX "/effect_choices[.]cpp$")
+target_sources(ern_effect_choices_tests PRIVATE ${choice_sources})
+
 # Native probes.
 add_executable(ern_relics_rules_probe data/rules_probe.cpp)
 target_link_libraries(ern_relics_rules_probe PRIVATE ern_application)
@@ -76,4 +92,21 @@ add_test(NAME asset_verification COMMAND "${Python3_EXECUTABLE}" -m tests.toolin
     --build-directory "$<TARGET_FILE_DIR:ern_relics_assets_probe>" -v)
 set_tests_properties(asset_verification PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     LABELS "tooling;data" TIMEOUT 60)
+
+# DX12 integration checks.
+target_sources(ern_relics PRIVATE integration/dll_fixture.cpp)
+add_executable(ern_relics_host WIN32 integration/host.cpp)
+set_target_properties(ern_relics_host PROPERTIES OUTPUT_NAME "ern-relics-host"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+target_include_directories(ern_relics_host PRIVATE "${CMAKE_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(ern_relics_host PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+ern_configure_target(ern_relics_host)
+target_link_libraries(ern_relics_host PRIVATE d3d12 dxgi)
+
+add_test(NAME dx12_host COMMAND pwsh -NoProfile -File "${CMAKE_SOURCE_DIR}/tools/verify.ps1"
+    -BuildDirectory "$<TARGET_FILE_DIR:ern_relics_host>")
+set_tests_properties(dx12_host PROPERTIES LABELS "integration;dx12" TIMEOUT 60)
+add_test(NAME dx12_host_close COMMAND pwsh -NoProfile -File "${CMAKE_CURRENT_SOURCE_DIR}/integration/host_close_tests.ps1"
+    -BuildDirectory "$<TARGET_FILE_DIR:ern_relics_host>")
+set_tests_properties(dx12_host_close PROPERTIES LABELS "integration;dx12" TIMEOUT 60)
 
