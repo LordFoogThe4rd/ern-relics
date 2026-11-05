@@ -1,0 +1,17 @@
+# Build output and downloaded dependencies
+/dist/
+/third_party/
+
+# Local data and output
+/output/
+*.log
+*.ini.bak
+
+# Python environment and caches
+/.venv/
+__pycache__/
+*.py[cod]
+
+# Personal settings
+/CMakeUserPresets.json
+*.user

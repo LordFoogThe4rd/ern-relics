@@ -1,0 +1,22 @@
+[
+  {
+    "Name": "imgui",
+    "Url": "https://github.com/ocornut/imgui.git",
+    "Commit": "f5befd2d29e66809cd1110a152e375a7f1981f06"
+  },
+  {
+    "Name": "minhook",
+    "Url": "https://github.com/TsudaKageyu/minhook.git",
+    "Commit": "c3fcafdc10146beb5919319d0683e44e3c30d537"
+  },
+  {
+    "Name": "zstd",
+    "Url": "https://github.com/facebook/zstd.git",
+    "Commit": "f8745da6ff1ad1e7bab384bd1f9d742439278e99"
+  },
+  {
+    "Name": "bcdec",
+    "Url": "https://github.com/iOrange/bcdec.git",
+    "Commit": "80859ed3b7afb1c527a2a99d70c61457bea72d0c"
+  }
+]

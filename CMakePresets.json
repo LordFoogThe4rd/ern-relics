@@ -1,0 +1,46 @@
+{
+  "version": 5,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "windows",
+      "hidden": true,
+      "generator": "Ninja",
+      "architecture": { "value": "x64", "strategy": "external" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "BUILD_TESTING": true,
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "ERN_ENABLE_ASAN": false
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Windows Release",
+      "inherits": "windows",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TRY_COMPILE_CONFIGURATION": "Release"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Windows Debug",
+      "inherits": "windows",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TRY_COMPILE_CONFIGURATION": "Debug"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "Windows AddressSanitizer",
+      "inherits": "windows",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_TRY_COMPILE_CONFIGURATION": "RelWithDebInfo",
+        "ERN_ENABLE_ASAN": true
+      }
+    }
+  ]
+}

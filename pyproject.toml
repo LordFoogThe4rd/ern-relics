@@ -1,0 +1,32 @@
+[project]
+name = "ern-relics-tools"
+version = "0.0.0"
+requires-python = ">=3.12"
+
+[dependency-groups]
+dev = [
+    "clang-format==22.1.3",
+    "ruff==0.17.3",
+]
+assets = [
+    "Pillow>=13,<14",
+    "cryptography>=50.0.2,<51",
+    "zstandard>=0.25,<0.26",
+]
+
+[tool.uv]
+package = false
+required-version = ">=0.13.6"
+python-preference = "only-managed"
+default-groups = ["dev", "assets"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+include = ["tools/**/*.py", "tests/**/*.py"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
+
+[tool.ruff.format]
+quote-style = "single"

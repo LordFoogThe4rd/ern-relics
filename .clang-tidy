@@ -1,0 +1,13 @@
+Checks: >-
+  -*,
+  clang-analyzer-core.*,
+  clang-analyzer-cplusplus.*,
+  clang-analyzer-deadcode.DeadStores,
+  bugprone-dangling-handle,
+  bugprone-sizeof-expression,
+  bugprone-stringview-nullptr,
+  bugprone-suspicious-memory-comparison,
+  bugprone-undefined-memory-manipulation,
+  bugprone-use-after-move
+WarningsAsErrors: 'clang-analyzer-*,bugprone-*'
+InheritParentConfig: false
