@@ -22,3 +22,11 @@ add_core_check(relic_validation relics/validation_tests.cpp "core;relics;rules" 
 add_core_check(presets relics/preset_tests.cpp "core;relics;presets" ern_game_memory)
 
 add_core_check(drafts relics/draft_tests.cpp "core;relics;drafts" ern_game_memory)
+
+add_core_check(fingerprints data/fingerprint_tests.cpp "core;data" ern_game_data)
+
+add_core_check(preset_store data/preset_store_tests.cpp "core;data;presets" ern_game_data)
+
+add_core_check(rotating_file data/rotating_file_tests.cpp "core;data" ern_game_data)
+
+add_core_check(edit_journal data/edit_journal_tests.cpp "core;data" ern_game_data)

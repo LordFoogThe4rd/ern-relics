@@ -1,0 +1,18 @@
+#pragma once
+#include <array>
+#include <cstdint>
+#include <string_view>
+
+// Generated from tools/assets/nightreign-keys.json. These are public format
+// constants from the pinned Smithbox revision, not extracted game content.
+namespace ern::game {
+inline constexpr std::array<std::uint8_t, 32> regulation_key{@REGULATION_BYTES@};
+struct ArchiveKey { std::string_view name, pem; };
+inline constexpr std::array archive_keys{
+    ArchiveKey{"data0", R"KEY(@DATA0_KEY@)KEY"},
+    ArchiveKey{"data1", R"KEY(@DATA1_KEY@)KEY"},
+    ArchiveKey{"data2", R"KEY(@DATA2_KEY@)KEY"},
+    ArchiveKey{"data3", R"KEY(@DATA3_KEY@)KEY"},
+    ArchiveKey{"dlc01", R"KEY(@DLC01_KEY@)KEY"}
+};
+}

@@ -33,6 +33,32 @@ function(ern_configure_target target)
     target_compile_definitions(${target} PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
 endfunction()
 
+# Generated game keys and third-party dependencies.
+file(READ "${CMAKE_SOURCE_DIR}/tools/assets/nightreign-keys.json" GAME_KEYS)
+string(JSON REGULATION_HEX GET "${GAME_KEYS}" regulation)
+string(REGEX REPLACE "(..)" "0x\\1," REGULATION_BYTES "${REGULATION_HEX}")
+foreach(archive DATA0 DATA1 DATA2 DATA3 DLC01)
+    string(TOLOWER "${archive}" archive_name)
+    string(JSON ${archive}_KEY GET "${GAME_KEYS}" archives "${archive_name}")
+endforeach()
+configure_file(src/data/game_keys.hpp.in generated/game_keys.hpp @ONLY)
+set(ZSTD_DIR "${CMAKE_SOURCE_DIR}/third_party/zstd/lib")
+if(NOT EXISTS "${ZSTD_DIR}/zstd.h")
+    message(FATAL_ERROR "Run tools/bootstrap.ps1 to download the pinned Zstandard decoder.")
+endif()
+add_library(zstd_decoder STATIC
+    ${ZSTD_DIR}/common/debug.c
+    ${ZSTD_DIR}/common/entropy_common.c
+    ${ZSTD_DIR}/common/error_private.c
+    ${ZSTD_DIR}/common/fse_decompress.c
+    ${ZSTD_DIR}/common/xxhash.c
+    ${ZSTD_DIR}/common/zstd_common.c
+    ${ZSTD_DIR}/decompress/huf_decompress.c
+    ${ZSTD_DIR}/decompress/zstd_ddict.c
+    ${ZSTD_DIR}/decompress/zstd_decompress.c
+    ${ZSTD_DIR}/decompress/zstd_decompress_block.c)
+target_include_directories(zstd_decoder SYSTEM PUBLIC ${ZSTD_DIR})
+target_compile_definitions(zstd_decoder PRIVATE ZSTD_DISABLE_ASM)
 # Project targets.
 add_library(ern_relic_model STATIC
     src/relics/effect_catalog.cpp
@@ -50,11 +76,25 @@ add_library(ern_game_memory STATIC
     src/game/relic_writer.cpp)
 target_link_libraries(ern_game_memory PUBLIC ern_relic_model)
 
+add_library(ern_game_data STATIC
+    src/data/fingerprint.cpp
+    src/data/regulation.cpp
+    src/data/game_files.cpp
+    src/data/game_assets.cpp
+    src/data/catalog_presentation.cpp
+    src/data/preset_store.cpp
+    src/data/edit_journal.cpp
+    src/data/rotating_file.cpp
+    src/data/system_fonts.cpp)
+target_link_libraries(ern_game_data PUBLIC ern_relic_model PRIVATE bcrypt crypt32 xmllite shlwapi zstd_decoder)
+target_include_directories(ern_game_data PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+target_include_directories(ern_game_data SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/third_party/bcdec")
+
 # Keep explicit build inputs while rejecting forgotten or stale source registrations.
 # Collect sources before tests add integration/dll_fixture.cpp to ern_relics.
 file(GLOB_RECURSE project_sources CONFIGURE_DEPENDS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "src/*.cpp")
 set(registered_sources)
-foreach(target ern_relic_model ern_game_memory)
+foreach(target ern_relic_model ern_game_memory ern_game_data)
     ern_configure_target(${target})
     get_target_property(target_sources ${target} SOURCES)
     list(APPEND registered_sources ${target_sources})
