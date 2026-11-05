@@ -1,0 +1,84 @@
+[b]ERN Relics[/b]
+
+Edit equipped relic effects in Elden Ring Nightreign without leaving the game.
+Open the overlay at Roundtable Hold, review your changes, and apply them together.
+
+[b]Features[/b]
+
+[list]
+[*]Edit normal relic effects and Deep Relic effects with paired curses.
+[*]Search effects and check combinations against the active roll rules.
+[*]Stage changes across slots, apply a batch, and undo the last applied batch.
+[*]Save equipped effects as presets and preview compatibility before loading them.
+[/list]
+
+Effect choices follow the roll rules in your active Mod Engine 3 profile.
+
+[b]Requirements[/b]
+
+64-bit Windows, Elden Ring Nightreign with nightreign.exe file version 1.3.3.0,
+and [url=https://github.com/garyttierney/me3/releases]Mod Engine 3[/url].
+Check Properties > Details > File version on the executable.
+
+[b]Use an offline ME3 profile with Easy Anti-Cheat disabled. Back up your save before editing.[/b]
+Editing is locked when the executable layout or active rules cannot be verified.
+
+[b]Install[/b]
+
+1. Download the ERN Relics ZIP.
+2. Drag and drop the ZIP into ME3.
+3. Click [b]Merge[/b].
+
+[b]Use the editor[/b]
+
+1. Load a character at Roundtable Hold and press F8.
+2. Select an equipped rolled relic, then select an effect or paired curse.
+3. Choose a replacement and review the drafts.
+4. Click Apply changes.
+
+Apply updates your relics immediately. Once the game saves your character, those
+changes persist after restarting.
+
+Drafts remain as you switch slots. Discard changes clears unapplied drafts.
+Undo restores the last applied batch in the current character session.
+Returning to the title screen or changing character clears drafts and Undo.
+If Apply or Undo stops partway, completed changes remain and the overlay reports
+the failure.
+
+In Presets, enter a name and click Save preset to capture equipped effects.
+Select a preset to preview compatibility, then click Load into drafts. Review
+those drafts before applying. Unapplied drafts and locked or invalid relics are
+omitted when saving a preset.
+
+[b]Limits[/b]
+
+Only rolled, equipped relics are editable. The editor cannot create relics,
+change their color, or edit unequipped inventory. Apply requires a valid roll.
+Effects that trigger at character or expedition start follow the game's normal
+timing. The overlay captures keyboard and mouse input while open, but does not
+pause the game or block controller input.
+
+Restart the game after changing regulation.bin.
+
+[b]Troubleshooting[/b]
+
+No overlay: check the launched profile's DLL path, load_early = true, and other
+graphics overlays. Editing locked: check Diagnostics and your character's location.
+Numeric labels or placeholder icons: check the asset warnings in Diagnostics.
+
+ern-relics.log, relic-edits.jsonl, and the presets folder live beside the DLL.
+The journal records original effects before writes; it does not replace a save backup.
+
+[b]License and credits[/b]
+
+Project code is MIT licensed. Preserve LICENSE and ThirdPartyNotices.txt when
+redistributing the mod. Third-party components retain their own license terms.
+
+Runtime dependencies include Dear ImGui, ProggyClean, stb, MinHook with HDE,
+Zstandard, and bcdec. Research credits include Doublemoses, yk23311, sganggs,
+Smithbox and SoulsFormats contributors, and RConnectMod. Full source links,
+pinned revisions, attributions, and required notices are in ThirdPartyNotices.txt.
+
+Development used AI coding tools. This page description was drafted with AI.
+
+This community project is unaffiliated with FromSoftware and Bandai Namco.
