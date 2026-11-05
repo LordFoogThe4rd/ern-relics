@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows checks
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: true
+      - name: Set up pinned LLVM
+        run: |
+          uv sync --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Python tooling setup failed.' }
+          ./tools/ci/setup-llvm.ps1
+      - name: Bootstrap dependencies
+        run: ./tools/bootstrap.ps1
+      - name: Check Release
+        run: ./tools/check.ps1 -Label dev -Jobs 4
+      - name: Check AddressSanitizer
+        run: ./tools/build.ps1 -Preset asan -Jobs 4

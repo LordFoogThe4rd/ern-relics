@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Prepare release
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - name: Update release pull request or tag merged release
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: main
+
+  package:
+    name: Build and publish release ZIP
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: write
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+      RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      - name: Check out released source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.sha }}
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: true
+      - name: Set up pinned LLVM
+        run: |
+          uv sync --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Python tooling setup failed.' }
+          ./tools/ci/setup-llvm.ps1
+      - name: Bootstrap dependencies
+        run: ./tools/bootstrap.ps1
+      - name: Build, check, and package release
+        run: |
+          $version = [IO.File]::ReadAllText('version.txt').Trim()
+          if ($version -cne $env:RELEASE_VERSION -or $env:RELEASE_TAG -cne "v$version") {
+              throw 'Release Please outputs do not match the checked-out release version.'
+          }
+          ./tools/release.ps1 -Jobs 4
+      - name: Attach ZIP and checksum to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $name = "ern-relics-$env:RELEASE_VERSION.zip"
+          gh release upload $env:RELEASE_TAG "dist/$name" "dist/$name.sha256"
+          if ($LASTEXITCODE -ne 0) { throw 'Release artifact upload failed.' }

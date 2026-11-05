@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "3a01d0ee2b136521fcd31069fa7909f71dac4ce2",
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "ern-relics",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "version-file": "version.txt",
+      "extra-files": ["CMakeLists.txt"]
+    }
+  }
+}
