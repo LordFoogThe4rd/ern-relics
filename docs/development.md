@@ -116,8 +116,10 @@ requests**. Keep the default workflow permissions read-only. The release job
 requests its own write permissions and uses `GITHUB_TOKEN`, so no personal access
 token is required.
 
-PRs created with `GITHUB_TOKEN` do not trigger CI automatically. Run **CI > Run
-workflow** on the release PR's branch before merging.
+GitHub requires approval before running CI on PRs created or updated with
+`GITHUB_TOKEN`. On the release PR, select **Approve workflows to run** before
+merging. You can also run **CI > Run workflow** on the release PR's branch. See
+[GitHub's workflow trigger rules](https://docs.github.com/en/actions/concepts/security/github_token#when-github_token-triggers-workflow-runs).
 
 Merging the release PR creates a `v<version>` tag and GitHub Release. The
 [Release workflow](../.github/workflows/release.yml) runs on pushes to `main` or
