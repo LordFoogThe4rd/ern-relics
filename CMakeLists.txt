@@ -90,11 +90,24 @@ target_link_libraries(ern_game_data PUBLIC ern_relic_model PRIVATE bcrypt crypt3
 target_include_directories(ern_game_data PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_include_directories(ern_game_data SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/third_party/bcdec")
 
+add_library(ern_application STATIC
+    src/app/active_regulation.cpp
+    src/app/editor_session.cpp
+    src/app/relic_edit_queue.cpp
+    src/app/native_edit_diagnostics.cpp
+    src/app/native_callback_hook.cpp
+    src/app/process_guard.cpp
+    src/app/runtime.cpp
+    src/app/editor_application.cpp
+    src/app/event_log.cpp)
+target_link_libraries(ern_application PUBLIC ern_game_memory ern_game_data)
+target_compile_definitions(ern_application PRIVATE ERN_VERSION="${PROJECT_VERSION}")
+
 # Keep explicit build inputs while rejecting forgotten or stale source registrations.
 # Collect sources before tests add integration/dll_fixture.cpp to ern_relics.
 file(GLOB_RECURSE project_sources CONFIGURE_DEPENDS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "src/*.cpp")
 set(registered_sources)
-foreach(target ern_relic_model ern_game_memory ern_game_data)
+foreach(target ern_relic_model ern_game_memory ern_game_data ern_application)
     ern_configure_target(${target})
     get_target_property(target_sources ${target} SOURCES)
     list(APPEND registered_sources ${target_sources})
