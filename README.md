@@ -1,6 +1,6 @@
 # ERN Relics
 
-An in-game relic editor for **Elden Ring Nightreign** on Windows. Change equipped
+An in-game relic editor for **Elden Ring Nightreign**. Change equipped
 relic effects at Roundtable Hold, review your changes, and apply them without
 leaving the game.
 
