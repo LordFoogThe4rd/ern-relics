@@ -1,0 +1,40 @@
+name: Set up native checks
+description: Prepare locked Python tools and cached native dependencies on Windows.
+inputs:
+  analysis:
+    description: Install the pinned clang-tidy analyzer.
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Set up uv
+      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        version: "0.13.6"
+        enable-cache: true
+        cache-dependency-glob: uv.lock
+    - name: Set up Python tools
+      shell: pwsh
+      run: |
+        uv sync --locked
+        if ($LASTEXITCODE -ne 0) { throw 'Python tooling setup failed.' }
+    - name: Cache pinned LLVM
+      if: inputs.analysis == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/ern-relics-llvm
+        key: llvm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pyproject.toml', 'tools/ci/setup-llvm.ps1') }}
+    - name: Set up pinned LLVM
+      if: inputs.analysis == 'true'
+      shell: pwsh
+      run: ./tools/ci/setup-llvm.ps1
+    - name: Cache pinned native sources
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: third_party
+        key: sources-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('sources.lock.json', 'tools/bootstrap.ps1') }}
+    - name: Bootstrap dependencies
+      shell: pwsh
+      env:
+        ERN_CI_ANALYSIS: ${{ inputs.analysis }}
+      run: ./tools/bootstrap.ps1 -SkipAnalysis:($env:ERN_CI_ANALYSIS -ne 'true')

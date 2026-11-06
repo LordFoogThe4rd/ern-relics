@@ -65,6 +65,8 @@ add_test(NAME layout COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tools/
 set_tests_properties(layout PROPERTIES LABELS "build" TIMEOUT 30)
 add_test(NAME layout_rejection COMMAND "${Python3_EXECUTABLE}" -m tests.integration.layout_tests)
 set_tests_properties(layout_rejection PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" LABELS "build" TIMEOUT 30)
+add_test(NAME ci_changes COMMAND "${Python3_EXECUTABLE}" -m tests.tooling.ci_changes_tests)
+set_tests_properties(ci_changes PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" LABELS "build" TIMEOUT 30)
 add_test(NAME verify_paths COMMAND pwsh -NoProfile -File "${CMAKE_CURRENT_SOURCE_DIR}/integration/verify_paths_tests.ps1")
 set_tests_properties(verify_paths PROPERTIES LABELS "build" TIMEOUT 30)
 

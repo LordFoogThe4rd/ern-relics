@@ -80,6 +80,14 @@ try {
         Assert-PinnedDependencies $root
     }
 
+    $withoutAnalyzer = New-BootstrapFixture 'without-analyzer'
+    Add-Content -LiteralPath (Join-Path $withoutAnalyzer 'tools/build/toolchain.ps1') -Value @'
+function Get-PinnedClangTidy { throw 'Analyzer unavailable.' }
+'@
+    Assert-BootstrapRejected $withoutAnalyzer '*Analyzer unavailable.*'
+    & (Join-Path $withoutAnalyzer 'tools/bootstrap.ps1') -SkipAnalysis | Out-Null
+    Assert-PinnedDependencies $withoutAnalyzer
+
     $first = Join-Path $root 'third_party/first'
     $second = Join-Path $root 'third_party/second'
     $index = Join-Path $first '.git/index'

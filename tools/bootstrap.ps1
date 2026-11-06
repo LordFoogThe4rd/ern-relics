@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$SkipAnalysis
+)
 $ErrorActionPreference = 'Stop'
 # Native exits are checked explicitly; an unborn dependency has no HEAD yet.
 $PSNativeCommandUseErrorActionPreference = $false
@@ -10,7 +12,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Tooling setup failed. See the uv output above.
 $python = & uv run --project $projectRoot --locked python -c 'import sys; print(sys.executable)'
 if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve the tooling Python.' }
 $toolchain = Get-NativeToolchain
-$null = Get-PinnedClangTidy -Toolchain $toolchain -Python $python
+if (-not $SkipAnalysis) {
+    $null = Get-PinnedClangTidy -Toolchain $toolchain -Python $python
+}
 $dependencyRoot = Join-Path $projectRoot 'third_party'
 New-Item -ItemType Directory -Force -Path $dependencyRoot | Out-Null
 

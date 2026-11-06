@@ -6,19 +6,59 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+    inputs:
+      full:
+        description: Include clang-tidy and AddressSanitizer checks.
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
+  quick:
+    name: Quick checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      native: ${{ steps.changes.outputs.native }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out source and comparison history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Select checks for changed files
+        id: changes
+        run: uv run --locked python -m tools.ci.changes
+      - name: Check Python lint
+        run: uv run --locked ruff check --no-cache .
+      - name: Check Python and C++ formatting
+        run: ./tools/format.ps1
+      - name: Check repository layout and links
+        run: uv run --locked python -m tools.checks.layout
+      - name: Test CI change selection
+        run: uv run --locked python -m tests.tooling.ci_changes_tests
+
   windows:
     name: Windows checks
+    needs: quick
+    if: needs.quick.outputs.native == 'true'
     runs-on: windows-2025
     timeout-minutes: 30
+    # A docs-only run must not cancel an earlier commit's native verification.
+    concurrency:
+      group: ci-windows-${{ github.ref }}
+      cancel-in-progress: true
     defaults:
       run:
         shell: pwsh
@@ -27,19 +67,35 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Set up native checks
+        uses: ./.github/actions/setup-native
         with:
-          version: "0.13.6"
-          enable-cache: true
-      - name: Set up pinned LLVM
-        run: |
-          uv sync --locked
-          if ($LASTEXITCODE -ne 0) { throw 'Python tooling setup failed.' }
-          ./tools/ci/setup-llvm.ps1
-      - name: Bootstrap dependencies
-        run: ./tools/bootstrap.ps1
-      - name: Check Release
+          analysis: ${{ inputs.full && 'true' || 'false' }}
+      - name: Build and test Release
+        if: ${{ !inputs.full }}
+        run: ./tools/build.ps1 -Label dev -Jobs 4
+      - name: Check Release with static analysis
+        if: inputs.full
         run: ./tools/check.ps1 -Label dev -Jobs 4
+
+  asan:
+    name: AddressSanitizer checks
+    needs: quick
+    if: inputs.full
+    runs-on: windows-2025
+    timeout-minutes: 30
+    concurrency:
+      group: ci-asan-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up native checks
+        uses: ./.github/actions/setup-native
       - name: Check AddressSanitizer
         run: ./tools/build.ps1 -Preset asan -Jobs 4

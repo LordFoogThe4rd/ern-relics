@@ -44,7 +44,7 @@ jobs:
     permissions:
       contents: write
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         shell: pwsh
@@ -57,18 +57,10 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.sha }}
           persist-credentials: false
-      - name: Set up uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Set up native checks
+        uses: ./.github/actions/setup-native
         with:
-          version: "0.13.6"
-          enable-cache: true
-      - name: Set up pinned LLVM
-        run: |
-          uv sync --locked
-          if ($LASTEXITCODE -ne 0) { throw 'Python tooling setup failed.' }
-          ./tools/ci/setup-llvm.ps1
-      - name: Bootstrap dependencies
-        run: ./tools/bootstrap.ps1
+          analysis: "true"
       - name: Build, check, and package release
         run: |
           $version = [IO.File]::ReadAllText('version.txt').Trim()
@@ -76,6 +68,8 @@ jobs:
               throw 'Release Please outputs do not match the checked-out release version.'
           }
           ./tools/release.ps1 -Jobs 4
+      - name: Check AddressSanitizer before publishing
+        run: ./tools/build.ps1 -Preset asan -Jobs 4
       - name: Attach ZIP and checksum to release
         env:
           GH_TOKEN: ${{ github.token }}

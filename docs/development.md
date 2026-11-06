@@ -47,10 +47,32 @@ This adds lint, formatting checks, and static analysis to the build and tests.
 Use `-Jobs <count>` to limit parallelism. For AddressSanitizer, run
 `./tools/build.ps1 -Preset asan`.
 
-The [CI workflow](../.github/workflows/ci.yml) runs both checks for pull
-requests, pushes to `main`, and manual runs. Pushes to other branches rely on PR
-checks to avoid duplicate builds. New runs cancel older checks on the same PR or
-branch, including `main`.
+The [CI workflow](../.github/workflows/ci.yml) runs for pull requests, pushes to
+`main`, and manual runs. Pushes to other branches rely on PR checks to avoid
+duplicate builds. New Windows jobs cancel older jobs on the same PR or branch,
+including `main`. Documentation-only runs leave existing Windows checks running.
+
+- Every run checks Python lint, Python and C++ formatting, repository layout, and
+  documentation links on Linux.
+- Changes limited to root Markdown files or Markdown under `docs/` skip Windows.
+  All other changes run the Release build, compiler warnings, CTest, synthetic
+  asset regressions, and the packaged DLL's DX12 host checks on Windows.
+- For clang-tidy and AddressSanitizer, select **CI > Run workflow** and leave
+  **Include clang-tidy and AddressSanitizer checks** enabled. The two Windows
+  jobs run in parallel. Disable that option to run ordinary push checks manually.
+
+Change selection compares the complete push or PR diff, including deleted files
+and both sides of renames. Missing history and manual runs select Windows checks.
+Unknown paths also select Windows checks. CI tests this selection with local Git
+fixtures through `uv run --locked python -m tests.tooling.ci_changes_tests`.
+
+The [shared native setup](../.github/actions/setup-native/action.yml) caches uv
+packages, native dependency checkouts keyed by `sources.lock.json`, and the pinned
+LLVM analyzer and builtin headers. Bootstrap still validates cached dependency
+origins, commits, and clean working trees. Ordinary builds use
+`./tools/bootstrap.ps1 -SkipAnalysis` and do not install LLVM. Builds and tests
+always run from fresh output directories. Local bootstrap and `check.ps1` keep
+their full checks by default.
 
 For documentation-only changes:
 
@@ -124,8 +146,10 @@ merging. You can also run **CI > Run workflow** on the release PR's branch. See
 Merging the release PR creates a `v<version>` tag and GitHub Release. The
 [Release workflow](../.github/workflows/release.yml) runs on pushes to `main` or
 manual runs on `main`. When it creates a release, it builds and verifies the exact
-release commit, then attaches `ern-relics-<version>.zip` and its `.zip.sha256`
-checksum. New pushes do not cancel an active release run. CI has read-only
+release commit, including clang-tidy and AddressSanitizer, then attaches
+`ern-relics-<version>.zip` and its `.zip.sha256` checksum. Ordinary pushes only
+update the release PR. Packaging runs only when Release Please creates a release.
+New pushes do not cancel an active release run. CI has read-only
 repository access and runs independently; release jobs have write access.
 
 To build a release locally:
