@@ -6,7 +6,7 @@ Run commands from the repository root in PowerShell 7.4 or newer on 64-bit Windo
 
 Install Git and [uv](https://docs.astral.sh/uv/getting-started/installation/). Import
 [.vsconfig](../.vsconfig) into the Visual Studio Installer for the C++ build tools,
-CMake, Ninja, AddressSanitizer, and Windows SDK components.
+CMake 3.25 or newer, Ninja, AddressSanitizer, and Windows SDK components.
 
 Install clang-tidy matching the clang-format version in
 [pyproject.toml](../pyproject.toml). The scripts look for it in Visual Studio and
@@ -71,8 +71,26 @@ packages, native dependency checkouts keyed by `sources.lock.json`, and the pinn
 LLVM analyzer and builtin headers. Bootstrap still validates cached dependency
 origins, commits, and clean working trees. Ordinary builds use
 `./tools/bootstrap.ps1 -SkipAnalysis` and do not install LLVM. Builds and tests
-always run from fresh output directories. Local bootstrap and `check.ps1` keep
-their full checks by default.
+always run from fresh output directories. CI also caches compiler results with
+pinned [sccache](https://github.com/mozilla/sccache), using a 512 MiB disk cache
+per job type. Each commit saves its own cache and can restore the latest cache
+from the same job type. sccache checks source, compiler, headers, and options
+before reusing an object. CI uses a stable build path on each fresh runner and
+reports cache hits and misses in the setup action's final step. Local bootstrap
+and `check.ps1` keep their full checks by default.
+
+The production DLL under `<build-directory>/runtime/` and the integration DLL
+beside the host share compiled runtime objects. UI tests link the same UI library
+as the DLLs. The integration DLL alone adds test fixture exports. CTest checks
+`compile_commands.json` to reject any source compiled more than once:
+
+```powershell
+uv run --locked python -m tools.checks.compilation --build-directory '<build-directory>'
+```
+
+To use a locally installed sccache, set `CMAKE_C_COMPILER_LAUNCHER` and
+`CMAKE_CXX_COMPILER_LAUNCHER` to `sccache` before configuring. Debug and sanitizer
+builds embed compiler debug information so objects can be cached with MSVC.
 
 For documentation-only changes:
 
@@ -157,6 +175,11 @@ To build a release locally:
 ```powershell
 ./tools/release.ps1
 ```
+
+Packaging stages files inside its output directory, so the final moves stay on
+the destination volume even when Windows TEMP is on a different drive. The
+packaging regression test keeps its input in TEMP and its output in the checkout
+to exercise that layout on hosted Windows runners.
 
 The command runs the full check and creates the release package, ZIP, and checksum
 in `dist/`. Existing release output is never replaced. Use

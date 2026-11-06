@@ -67,9 +67,9 @@ jobs:
           if ($version -cne $env:RELEASE_VERSION -or $env:RELEASE_TAG -cne "v$version") {
               throw 'Release Please outputs do not match the checked-out release version.'
           }
-          ./tools/release.ps1 -Jobs 4
+          ./tools/release.ps1 -Jobs 4 -BuildDirectory "$env:RUNNER_TEMP/build"
       - name: Check AddressSanitizer before publishing
-        run: ./tools/build.ps1 -Preset asan -Jobs 4
+        run: ./tools/build.ps1 -Preset asan -Jobs 4 -BuildDirectory "$env:RUNNER_TEMP/build"
       - name: Attach ZIP and checksum to release
         env:
           GH_TOKEN: ${{ github.token }}

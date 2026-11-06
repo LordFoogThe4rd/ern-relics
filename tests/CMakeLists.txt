@@ -49,18 +49,15 @@ add_core_check(render_lifecycle app/render_lifecycle_tests.cpp "app;graphics" er
 # UI checks.
 add_core_check(ui_layout_and_groups ui/layout_tests.cpp "ui" ern_game_data)
 add_core_check(ui_rendering ui/render_tests.cpp "ui" ern_application)
-get_target_property(ui_sources ern_relics SOURCES)
-list(FILTER ui_sources INCLUDE REGEX "^src/ui/")
-list(TRANSFORM ui_sources PREPEND "${CMAKE_SOURCE_DIR}/")
-target_sources(ern_ui_rendering_tests PRIVATE ${ui_sources})
-target_link_libraries(ern_ui_rendering_tests PRIVATE imgui)
+target_link_libraries(ern_ui_rendering_tests PRIVATE ern_ui)
 
 add_core_check(effect_choices ui/effect_choices_tests.cpp "ui;relics" ern_game_data)
-set(choice_sources ${ui_sources})
-list(FILTER choice_sources INCLUDE REGEX "/effect_choices[.]cpp$")
-target_sources(ern_effect_choices_tests PRIVATE ${choice_sources})
+target_link_libraries(ern_effect_choices_tests PRIVATE ern_ui)
 
 # Build checks.
+add_test(NAME compilation COMMAND "${Python3_EXECUTABLE}" -m tools.checks.compilation
+    --build-directory "${CMAKE_BINARY_DIR}")
+set_tests_properties(compilation PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" LABELS "build" TIMEOUT 30)
 add_test(NAME layout COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tools/checks/layout.py")
 set_tests_properties(layout PROPERTIES LABELS "build" TIMEOUT 30)
 add_test(NAME layout_rejection COMMAND "${Python3_EXECUTABLE}" -m tests.integration.layout_tests)
@@ -99,7 +96,13 @@ set_tests_properties(asset_verification PROPERTIES WORKING_DIRECTORY "${CMAKE_SO
     LABELS "tooling;data" TIMEOUT 60)
 
 # DX12 integration checks.
-target_sources(ern_relics PRIVATE integration/dll_fixture.cpp)
+add_library(ern_relics_fixture SHARED integration/dll_fixture.cpp)
+target_link_libraries(ern_relics_fixture PRIVATE ern_runtime)
+ern_configure_target(ern_relics_fixture)
+set_target_properties(ern_relics_fixture PROPERTIES OUTPUT_NAME "ern-relics"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fixture"
+    PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 add_executable(ern_relics_host WIN32 integration/host.cpp)
 set_target_properties(ern_relics_host PROPERTIES OUTPUT_NAME "ern-relics-host"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")

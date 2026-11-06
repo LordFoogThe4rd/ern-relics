@@ -20,11 +20,11 @@ $buildDir = if ($temporary) { New-TemporaryDirectory } else {
 $runtimeBuildDir = Join-Path $buildDir 'runtime'
 $driver = Join-Path $PSScriptRoot 'build/driver.cmd'
 try {
-    & $driver $projectRoot $toolchain.Installation $toolchain.CMake $toolchain.Ninja $Preset $python $Jobs $buildDir $runtimeBuildDir
+    & $driver $projectRoot $toolchain.Installation $toolchain.CMake $toolchain.Ninja $Preset $python $Jobs $buildDir
     if ($LASTEXITCODE -ne 0) { throw 'Build or core verification failed.' }
 
     if ($Preset -ne 'asan') {
-        $version = Select-String -LiteralPath (Join-Path $runtimeBuildDir 'CMakeCache.txt') -Pattern '^CMAKE_PROJECT_VERSION:STATIC=(.+)$'
+        $version = Select-String -LiteralPath (Join-Path $buildDir 'CMakeCache.txt') -Pattern '^CMAKE_PROJECT_VERSION:STATIC=(.+)$'
         if (-not $version) { throw 'Cannot read the configured project version.' }
         $name = 'ern-relics-' + $version.Matches.Groups[1].Value
         if ($Preset -ne 'release') { $name += "-$Preset" }

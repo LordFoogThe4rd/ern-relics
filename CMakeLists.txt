@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.25)
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>")
 project(ern_relics VERSION 1.0.1 LANGUAGES C CXX) # x-release-please-version
 
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -18,7 +19,7 @@ if(MSVC_VERSION LESS 1944)
 endif()
 option(ERN_ENABLE_ASAN "Instrument local tests and the DX12 host with AddressSanitizer" OFF)
 if(ERN_ENABLE_ASAN)
-    add_compile_options(/fsanitize=address /Zi)
+    add_compile_options(/fsanitize=address)
     add_link_options(/INCREMENTAL:NO)
     get_filename_component(compiler_directory "${CMAKE_CXX_COMPILER}" DIRECTORY)
     find_file(asan_runtime NAMES clang_rt.asan_dynamic-x86_64.dll
@@ -123,28 +124,38 @@ add_library(ern_application STATIC
 target_link_libraries(ern_application PUBLIC ern_game_memory ern_game_data)
 target_compile_definitions(ern_application PRIVATE ERN_VERSION="${PROJECT_VERSION}")
 
-add_library(ern_relics SHARED
-    src/app/dllmain.cpp
-    src/app/bootstrap.cpp
-    src/app/native_relic_equip.cpp
-    src/app/overlay.cpp
-    src/app/dx12_renderer.cpp
+add_library(ern_ui STATIC
     src/ui/ui.cpp
     src/ui/editor.cpp
     src/ui/effect_choices.cpp
     src/ui/presets.cpp
     src/ui/diagnostics.cpp
-    src/ui/widgets.cpp
+    src/ui/widgets.cpp)
+target_link_libraries(ern_ui PUBLIC ern_game_data imgui)
+
+# Compile DLL code once, then link production and integration-test variants.
+add_library(ern_runtime OBJECT
+    src/app/dllmain.cpp
+    src/app/bootstrap.cpp
+    src/app/native_relic_equip.cpp
+    src/app/overlay.cpp
+    src/app/dx12_renderer.cpp
     src/app/input.cpp)
-set_target_properties(ern_relics PROPERTIES OUTPUT_NAME "ern-relics")
-target_link_libraries(ern_relics PRIVATE ern_application imgui minhook version dinput8 dxguid)
-target_compile_definitions(ern_relics PRIVATE ERN_VERSION="${PROJECT_VERSION}")
+target_link_libraries(ern_runtime PUBLIC ern_application ern_ui minhook version dinput8 dxguid)
+target_compile_definitions(ern_runtime PRIVATE ERN_VERSION="${PROJECT_VERSION}")
+
+add_library(ern_relics SHARED)
+target_link_libraries(ern_relics PRIVATE ern_runtime)
+set_target_properties(ern_relics PROPERTIES OUTPUT_NAME "ern-relics"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/runtime"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/runtime"
+    PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/runtime")
+ern_configure_target(ern_relics)
 
 # Keep explicit build inputs while rejecting forgotten or stale source registrations.
-# Collect sources before tests add integration/dll_fixture.cpp to ern_relics.
 file(GLOB_RECURSE project_sources CONFIGURE_DEPENDS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "src/*.cpp")
 set(registered_sources)
-foreach(target ern_relic_model ern_game_memory ern_game_data ern_application ern_relics)
+foreach(target ern_relic_model ern_game_memory ern_game_data ern_application ern_ui ern_runtime)
     ern_configure_target(${target})
     get_target_property(target_sources ${target} SOURCES)
     list(APPEND registered_sources ${target_sources})

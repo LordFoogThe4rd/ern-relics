@@ -21,7 +21,9 @@ if ((Compare-Object $expected @($items.Name)) -or
 foreach ($path in @($package, $archive, $checksum)) {
     if (Test-Path -LiteralPath $path) { throw "Release output already exists; it will not be replaced: $path" }
 }
-$stage = New-TemporaryDirectory
+New-Item -ItemType Directory -Force -Path $dist | Out-Null
+$stage = Resolve-OutputPath (Join-Path $dist ('.stage-' + [guid]::NewGuid().ToString('N')))
+New-Item -ItemType Directory -Path $stage | Out-Null
 try {
     $stagedPackage = Join-Path $stage $name
     New-Item -ItemType Directory -Path $stagedPackage | Out-Null
@@ -56,5 +58,5 @@ try {
     [IO.File]::Move($stagedChecksum, $checksum)
     [pscustomobject]@{ Package = $package; Archive = $archive; SHA256 = $digest; Checksum = $checksum }
 } finally {
-    Remove-TemporaryDirectory $stage
+    Remove-GeneratedDirectory -Root $dist -Path $stage
 }

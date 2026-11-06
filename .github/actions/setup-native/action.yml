@@ -38,3 +38,20 @@ runs:
       env:
         ERN_CI_ANALYSIS: ${{ inputs.analysis }}
       run: ./tools/bootstrap.ps1 -SkipAnalysis:($env:ERN_CI_ANALYSIS -ne 'true')
+    - name: Set up compiler cache
+      uses: Mozilla-Actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+      with:
+        version: v0.19.0
+    - name: Cache compiled objects
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/sccache
+        key: sccache-v1-0.19.0-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ github.sha }}
+        restore-keys: sccache-v1-0.19.0-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
+    - name: Enable compiler cache
+      shell: pwsh
+      run: |
+        "SCCACHE_DIR=$env:RUNNER_TEMP/sccache" >> $env:GITHUB_ENV
+        "SCCACHE_CACHE_SIZE=512M" >> $env:GITHUB_ENV
+        "CMAKE_C_COMPILER_LAUNCHER=sccache" >> $env:GITHUB_ENV
+        "CMAKE_CXX_COMPILER_LAUNCHER=sccache" >> $env:GITHUB_ENV

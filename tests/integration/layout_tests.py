@@ -20,8 +20,12 @@ add_library(ern_game_data STATIC src/data/source.cpp)
 target_link_libraries(ern_game_data PUBLIC ern_relic_model PRIVATE bcrypt crypt32 xmllite shlwapi zstd_decoder)
 add_library(ern_application STATIC src/app/controller.cpp)
 target_link_libraries(ern_application PUBLIC ern_game_memory ern_game_data)
-add_library(ern_relics SHARED src/ui/view.cpp)
-target_link_libraries(ern_relics PRIVATE ern_application imgui minhook version dinput8 dxguid)
+add_library(ern_ui STATIC src/ui/view.cpp)
+target_link_libraries(ern_ui PUBLIC ern_game_data imgui)
+add_library(ern_runtime OBJECT)
+target_link_libraries(ern_runtime PUBLIC ern_application ern_ui minhook version dinput8 dxguid)
+add_library(ern_relics SHARED)
+target_link_libraries(ern_relics PRIVATE ern_runtime)
 """,
             'tests/CMakeLists.txt': '',
             'sources.lock.json': '[]',

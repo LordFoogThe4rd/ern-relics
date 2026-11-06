@@ -73,10 +73,10 @@ jobs:
           analysis: ${{ inputs.full && 'true' || 'false' }}
       - name: Build and test Release
         if: ${{ !inputs.full }}
-        run: ./tools/build.ps1 -Label dev -Jobs 4
+        run: ./tools/build.ps1 -Label dev -Jobs 4 -BuildDirectory "$env:RUNNER_TEMP/build"
       - name: Check Release with static analysis
         if: inputs.full
-        run: ./tools/check.ps1 -Label dev -Jobs 4
+        run: ./tools/check.ps1 -Label dev -Jobs 4 -BuildDirectory "$env:RUNNER_TEMP/build"
 
   asan:
     name: AddressSanitizer checks
@@ -98,4 +98,4 @@ jobs:
       - name: Set up native checks
         uses: ./.github/actions/setup-native
       - name: Check AddressSanitizer
-        run: ./tools/build.ps1 -Preset asan -Jobs 4
+        run: ./tools/build.ps1 -Preset asan -Jobs 4 -BuildDirectory "$env:RUNNER_TEMP/build"

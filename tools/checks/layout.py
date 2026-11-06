@@ -23,13 +23,15 @@ def check_build_graph(root):
             'zstd_decoder',
         },
         'ern_application': {'ern_game_memory', 'ern_game_data'},
-        'ern_relics': {'ern_application', 'imgui', 'minhook', 'version', 'dinput8', 'dxguid'},
+        'ern_ui': {'ern_game_data', 'imgui'},
+        'ern_runtime': {'ern_application', 'ern_ui', 'minhook', 'version', 'dinput8', 'dxguid'},
+        'ern_relics': {'ern_runtime'},
     }
     owners = {
         'relics': 'ern_relic_model',
         'game': 'ern_game_memory',
         'data': 'ern_game_data',
-        'ui': 'ern_relics',
+        'ui': 'ern_ui',
     }
     links = {target: set() for target in dependencies}
     declared = set()

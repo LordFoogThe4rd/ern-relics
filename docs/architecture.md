@@ -10,7 +10,10 @@ The project targets in [CMakeLists.txt](../CMakeLists.txt) have these dependenci
 
 ```mermaid
 flowchart LR
-	dll[ern_relics] --> app[ern_application]
+	dll[ern_relics] --> native[ern_runtime]
+	native --> app[ern_application]
+	native --> ui[ern_ui]
+	ui --> data[ern_game_data]
 	app --> memory[ern_game_memory]
 	app --> data[ern_game_data]
 	memory --> model[ern_relic_model]
@@ -27,7 +30,10 @@ flowchart LR
 
 The relic model is independent of game memory, storage, and graphics. Memory and
 file adapters depend on that model. `ern_application` combines them into the
-runtime, while the final `ern_relics` DLL adds the overlay and native bindings.
+runtime. `ern_runtime` owns the compiled overlay and native binding objects,
+while `ern_ui` owns the UI library shared by rendering tests and the DLLs. The
+final `ern_relics` DLL and its integration-test variant link those same objects;
+only the integration variant adds test fixture exports.
 [RuntimeEnvironment](../src/app/runtime_environment.hpp) supplies the runtime's
 adapters at startup.
 

@@ -3,7 +3,9 @@ $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 . (Join-Path $projectRoot 'tools/build/output.ps1')
 $fixture = New-TemporaryDirectory
 $source = Join-Path $fixture 'Build [candidate]'
-$dist = Join-Path $fixture 'Output releases'
+# Hosted Windows runners keep TEMP on C: and the checkout on D:.
+$outputRoot = Join-Path $projectRoot 'output'
+$dist = Join-Path $outputRoot ('package-tests-' + [guid]::NewGuid().ToString('N'))
 $script = Join-Path $projectRoot 'tools/package.ps1'
 $files = @('ern-relics.dll', 'ern-relics.ini', 'nightreign-relics.me3', 'LICENSE', 'ThirdPartyNotices.txt')
 
@@ -76,5 +78,6 @@ try {
     if (Test-Path -LiteralPath (Join-Path $dist 'ern-relics-1.0.3')) { throw 'An invalid package published release output.' }
     Write-Host 'PASS: release ZIP bytes and SHA-256 match the frozen package; existing outputs, missing notices, runtime data, and extra directories are rejected.'
 } finally {
+    Remove-GeneratedDirectory -Root $outputRoot -Path $dist
     Remove-TemporaryDirectory $fixture
 }
