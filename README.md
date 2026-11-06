@@ -11,40 +11,6 @@ leaving the game.
 
 Effect choices follow the roll rules in your active Mod Engine 3 profile.
 
-## Screenshots
-
-Effect search with a preview of the pending replacement.
-
-![Effect search with a pending replacement and a tooltip comparing the old and new effects](docs/screenshots/effect-search-and-draft.webp)
-
-<details>
-<summary>More screenshots</summary>
-
-Applied relic changes with confirmation in the editor.
-
-![Editor after applying a Wylder character skill effect](docs/screenshots/effects-applied.webp)
-
-Starting armament effects alongside the game's equipment screen.
-
-![Starting armament search with fire damage staged as a replacement](docs/screenshots/starting-armament-draft.webp)
-
-An applied fire damage effect reflected in the equipment screen.
-
-![Applied starting armament effect with the fire damage icon visible in the equipment screen](docs/screenshots/starting-armament-applied.webp)
-
-A saved preset with normal and Deep Relic effects across six slots.
-
-![Saved preset with six relic templates ready to load into drafts](docs/screenshots/presets.webp)
-
-Equipped relics remain visible during expeditions, with editing limited to
-Roundtable Hold.
-
-![Six equipped relics during an expedition with the editing unavailable message](docs/screenshots/expedition-read-only.webp)
-
-</details>
-
-[Screenshot sources and usage terms](docs/screenshots/README.md).
-
 ## Install
 
 Requires 64-bit Windows, Elden Ring Nightreign with executable file version

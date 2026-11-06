@@ -26,6 +26,5 @@ These are documentation images, not extracted game assets. They are not included
 in mod packages. This community project is unaffiliated with FromSoftware and
 Bandai Namco.
 
-The [Nexus description](../nexus-description.txt) embeds these files using their
-raw GitHub URLs on `main`. Publish the images to that branch before copying the
-description to Nexus Mods.
+For Nexus Mods gallery uploads, create JPEG copies outside version control, such
+as in `dist/nexus-screenshots/`. Keep the WebP files here as the repository copies.

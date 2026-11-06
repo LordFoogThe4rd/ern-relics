@@ -14,26 +14,6 @@ Open the overlay at Roundtable Hold, review your changes, and apply them togethe
 
 Effect choices follow the roll rules in your active Mod Engine 3 profile.
 
-[b]Screenshots[/b]
-
-Effect search with a preview of the pending replacement.
-[img]https://raw.githubusercontent.com/demondobf/ern-relics/main/docs/screenshots/effect-search-and-draft.webp[/img]
-
-Applied relic changes with confirmation in the editor.
-[img]https://raw.githubusercontent.com/demondobf/ern-relics/main/docs/screenshots/effects-applied.webp[/img]
-
-Starting armament effects alongside the game's equipment screen.
-[img]https://raw.githubusercontent.com/demondobf/ern-relics/main/docs/screenshots/starting-armament-draft.webp[/img]
-
-An applied fire damage effect reflected in the equipment screen.
-[img]https://raw.githubusercontent.com/demondobf/ern-relics/main/docs/screenshots/starting-armament-applied.webp[/img]
-
-A saved preset with normal and Deep Relic effects across six slots.
-[img]https://raw.githubusercontent.com/demondobf/ern-relics/main/docs/screenshots/presets.webp[/img]
-
-Equipped relics remain visible during expeditions, with editing limited to Roundtable Hold.
-[img]https://raw.githubusercontent.com/demondobf/ern-relics/main/docs/screenshots/expedition-read-only.webp[/img]
-
 [b]Requirements[/b]
 
 64-bit Windows, Elden Ring Nightreign with nightreign.exe file version 1.3.3.0,
