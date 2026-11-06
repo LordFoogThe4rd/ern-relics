@@ -45,9 +45,11 @@ Editing is locked when the executable layout or active rules cannot be verified.
 
 [b]Install[/b]
 
-1. Download the ERN Relics ZIP.
+1. Download the ERN Relics ZIP from this page's Files tab or [url=https://github.com/demondobf/ern-relics/releases]GitHub Releases[/url].
 2. Drag and drop the ZIP into ME3.
 3. Click [b]Merge[/b].
+
+GitHub Releases provide a separate .zip.sha256 checksum file beside the ZIP.
 
 [b]Use the editor[/b]
 
@@ -80,6 +82,13 @@ pause the game or block controller input.
 
 Restart the game after changing regulation.bin.
 
+[b]Configuration[/b]
+
+Edit ern-relics.ini beside the installed DLL to change the hotkey or initial
+visibility. Hotkeys support F1 through F24 as Windows virtual-key codes, such as
+0x77 for F8 or 0x78 for F9. Restart the game after changing the configuration.
+Keep the default reader settings for supported editing.
+
 [b]Troubleshooting[/b]
 
 No overlay: check the launched profile's DLL path, load_early = true, and other
@@ -88,6 +97,10 @@ Numeric labels or placeholder icons: check the asset warnings in Diagnostics.
 
 ern-relics.log, relic-edits.jsonl, and the presets folder live beside the DLL.
 The journal records original effects before writes; it does not replace a save backup.
+
+Report bugs through [url=https://github.com/demondobf/ern-relics/issues]GitHub Issues[/url].
+Include the ERN Relics, game executable, and ME3 versions, steps to reproduce,
+the Diagnostics message, and relevant lines from ern-relics.log.
 
 [b]License and credits[/b]
 

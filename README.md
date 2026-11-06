@@ -55,13 +55,15 @@ executable versions stay read only.
 Use an offline ME3 profile with Easy Anti-Cheat disabled. Back up your save before
 editing.
 
-1. Download the ERN Relics ZIP from the project's release page or Nexus Mods listing.
+1. Download the ERN Relics ZIP from [GitHub Releases](https://github.com/demondobf/ern-relics/releases)
+   or the Nexus Mods listing's **Files** tab.
 2. Drag and drop the ZIP into ME3.
 3. Click **Merge**.
 
-The release ZIP includes a SHA-256 checksum. Attested CI rebuilds also publish
-GitHub build provenance, a signed tagged-source record, and downloadable Sigstore
-bundles. Follow the [release verification instructions](docs/development.md#release-attestations-and-rebuilds)
+GitHub Releases provide a separate `.zip.sha256` checksum file beside the ZIP.
+Attested CI builds also publish GitHub build provenance, a signed tagged-source
+record, and downloadable Sigstore bundles. Follow the
+[release verification instructions](docs/development.md#release-attestations-and-rebuilds)
 to check the workflow and source commit before installing.
 
 ## Edit relics
@@ -97,7 +99,10 @@ Files live in `presets/` beside the DLL.
 
 ## Configuration and troubleshooting
 
-Set the hotkey and initial visibility in [ern-relics.ini](config/ern-relics.ini).
+Set the hotkey and initial visibility in the installed `ern-relics.ini` beside
+the DLL. The [sample configuration](config/ern-relics.ini) shows the defaults.
+Hotkeys support **F1 through F24**, using Windows virtual-key codes, such as
+`0x77` for F8 or `0x78` for F9. Restart the game after changing the configuration.
 Keep the default reader settings for supported editing.
 
 Open **Diagnostics** to see why editing is locked or assets are missing.
@@ -110,6 +115,10 @@ For error details, check `ern-relics.log` beside the DLL.
 | Editing is locked | The reason in Diagnostics and a character at Roundtable Hold |
 | Numeric labels or placeholder icons | Asset warnings in Diagnostics |
 | Regulation changed | Restart the game after changing `regulation.bin` |
+
+Report bugs through [GitHub Issues](https://github.com/demondobf/ern-relics/issues).
+Include the ERN Relics, game executable, and ME3 versions, steps to reproduce,
+the Diagnostics message, and relevant lines from `ern-relics.log`.
 
 ## Contribute
 

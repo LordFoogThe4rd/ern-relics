@@ -4,9 +4,12 @@ Run commands from the repository root in PowerShell 7.4 or newer on 64-bit Windo
 
 ## Set up
 
-Install Git and [uv](https://docs.astral.sh/uv/getting-started/installation/). Import
-[.vsconfig](../.vsconfig) into the Visual Studio Installer for the C++ build tools,
-CMake 3.25 or newer, Ninja, AddressSanitizer, and Windows SDK components.
+Install Git and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+Use Visual Studio 2022 17.14 or newer, or Visual Studio 2026, with MSVC 19.44 or
+newer. Import [.vsconfig](../.vsconfig) into the Visual Studio Installer for the
+C++ build tools, CMake, Ninja, AddressSanitizer, and Windows SDK 10.0.26100
+components. CMake must be version 3.25 or newer, and Ninja must be version 1.11
+or newer.
 
 Install clang-tidy matching the clang-format version in
 [pyproject.toml](../pyproject.toml). The scripts look for it in Visual Studio and
