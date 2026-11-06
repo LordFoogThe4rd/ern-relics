@@ -7,6 +7,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
 function Test-ForbiddenAssetPath([string]$Path) {
+    # Documentation captures are allowed; extracted game assets remain forbidden.
+    if ($Path -match '^docs/screenshots/[^/]+\.webp$') { return $false }
     $sourceCode = $Path -match '^(src|tests)/.+\.(cpp|hpp|hpp\.in)$'
     return (-not $sourceCode -and $Path -match '(^|/)(data|output)/') -or
         $Path -match '\.(png|jpe?g|gif|webp|dds|tpf|bnd|dcx|param|bhd|bdt|bin|tsv|sl2|co2|rgba)$' -or

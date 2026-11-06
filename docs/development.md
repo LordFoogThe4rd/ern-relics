@@ -141,6 +141,11 @@ in [the CI setup script](../tools/ci/setup-llvm.ps1).
 Keep game assets, saves, extracted data, and proprietary decoders out of version
 control and distributed packages.
 
+Store documentation screenshots as WebP files directly in `docs/screenshots/`.
+This is the source asset check's only image exception. Record their source and
+usage terms in [the screenshot notes](screenshots/README.md). Screenshots are not
+included in mod packages.
+
 ## Releases
 
 Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):

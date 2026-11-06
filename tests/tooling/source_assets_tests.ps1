@@ -14,6 +14,26 @@ try {
 if (-not $rejected) { throw 'The source guard accepted an image asset.' }
 Remove-Item -LiteralPath $fakeAsset
 
+# Documentation screenshots are allowed only directly inside docs/screenshots.
+$screenshotDirectory = Join-Path $temporaryRoot 'docs/screenshots'
+New-Item -ItemType Directory -Path $screenshotDirectory -Force | Out-Null
+[IO.File]::WriteAllBytes((Join-Path $screenshotDirectory 'editor.webp'), [byte[]]@(0))
+& (Join-Path $projectRoot 'tools/checks/source-assets.ps1') -Root $temporaryRoot -AllFiles
+foreach ($relativePath in @('docs/relic-icons.webp', 'docs/screenshots/data/relic-icons.webp', 'docs/screenshots/relic-icons.dds', 'docs/screenshots/original.png')) {
+    $asset = Join-Path $temporaryRoot $relativePath
+    New-Item -ItemType Directory -Path (Split-Path -Parent $asset) -Force | Out-Null
+    [IO.File]::WriteAllBytes($asset, [byte[]]@(0))
+    $rejected = $false
+    try {
+        & (Join-Path $projectRoot 'tools/checks/source-assets.ps1') -Root $temporaryRoot -AllFiles
+    } catch {
+        if ($_.Exception.Message -notlike '*assets are not allowed*') { throw }
+        $rejected = $true
+    }
+    if (-not $rejected) { throw "The source guard accepted an asset outside the screenshot exception: $relativePath" }
+    Remove-Item -LiteralPath $asset
+}
+
 # Source code may live in data groups; exported catalogues may not.
 $sourceDirectory = Join-Path $temporaryRoot 'src/data'
 New-Item -ItemType Directory -Path $sourceDirectory -Force | Out-Null
@@ -76,8 +96,9 @@ Invoke-FixtureGit -GitArguments @('init', '--quiet', '--initial-branch=clean', '
 & (Join-Path $projectRoot 'tools/checks/source-assets.ps1') -Root $temporaryRoot
 Remove-Item -LiteralPath $dependencyAsset
 [IO.File]::WriteAllText((Join-Path $temporaryRoot 'fixture.txt'), 'Synthetic fixture')
-Invoke-FixtureGit -GitArguments @('add', 'fixture.txt', '.gitignore')
+Invoke-FixtureGit -GitArguments @('add', 'fixture.txt', '.gitignore', 'docs/screenshots/editor.webp')
 Invoke-FixtureGit -GitArguments @('commit', '--quiet', '-m', 'test: source-only fixture')
+& (Join-Path $projectRoot 'tools/checks/source-assets.ps1') -Root $temporaryRoot -History
 $linkedCheckout = Join-Path $temporaryRoot 'linked checkout'
 Invoke-FixtureGit -GitArguments @('worktree', 'add', '--quiet', '--detach', $linkedCheckout)
 if (-not (Test-Path -LiteralPath (Join-Path $linkedCheckout '.git') -PathType Leaf)) {
@@ -101,4 +122,4 @@ Invoke-FixtureGit -GitArguments @('update-ref', '-d', 'refs/snapshots/asset-fixt
 & (Join-Path $projectRoot 'tools/checks/source-assets.ps1') -Root $temporaryRoot -History
 
 Remove-TemporaryDirectory $temporaryRoot
-Write-Host 'PASS: Git and ZIP sources skip fetched dependencies; strict archives and Git history reject assets.'
+Write-Host 'PASS: Git and ZIP sources allow documentation screenshots and skip fetched dependencies; strict archives and Git history reject game assets.'
