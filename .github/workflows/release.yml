@@ -5,18 +5,27 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to rebuild; leave empty for Release Please.
+        type: string
+        default: ""
+      replace_assets:
+        description: Replace existing assets only after checks and attestations pass.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
   release-please:
     name: Prepare release
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && inputs.tag == ''
     permissions:
       contents: write
       issues: write
@@ -25,9 +34,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
-      version: ${{ steps.release.outputs.version }}
       tag_name: ${{ steps.release.outputs.tag_name }}
-      sha: ${{ steps.release.outputs.sha }}
     steps:
       - name: Update release pull request or tag merged release
         id: release
@@ -38,43 +45,137 @@ jobs:
           target-branch: main
 
   package:
-    name: Build and publish release ZIP
+    name: Build, attest, and publish release
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    if: >-
+      always() && !cancelled() &&
+      ((needs.release-please.result == 'success' && needs.release-please.outputs.release_created == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.tag != ''))
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     runs-on: windows-2025
     timeout-minutes: 45
     defaults:
       run:
         shell: pwsh
     env:
-      RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
-      RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+      RELEASE_TAG: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
+      REPLACE_ASSETS: ${{ inputs.replace_assets && 'true' || 'false' }}
     steps:
-      - name: Check out released source
+      - name: Check out workflow and release tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release-please.outputs.sha }}
+          ref: ${{ github.sha }}
+          path: tooling
           persist-credentials: false
-      - name: Set up native checks
-        uses: ./.github/actions/setup-native
-        with:
-          analysis: "true"
-      - name: Build, check, and package release
-        run: |
-          $version = [IO.File]::ReadAllText('version.txt').Trim()
-          if ($version -cne $env:RELEASE_VERSION -or $env:RELEASE_TAG -cne "v$version") {
-              throw 'Release Please outputs do not match the checked-out release version.'
-          }
-          ./tools/release.ps1 -Jobs 4 -BuildDirectory "$env:RUNNER_TEMP/build"
-      - name: Check AddressSanitizer before publishing
-        run: ./tools/build.ps1 -Preset asan -Jobs 4 -BuildDirectory "$env:RUNNER_TEMP/build"
-      - name: Attach ZIP and checksum to release
+      - name: Resolve and validate release tag
+        id: source
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          $name = "ern-relics-$env:RELEASE_VERSION.zip"
-          gh release upload $env:RELEASE_TAG "dist/$name" "dist/$name.sha256"
-          if ($LASTEXITCODE -ne 0) { throw 'Release artifact upload failed.' }
+          if ($env:RELEASE_TAG -cnotmatch '^v(\d+\.\d+\.\d+(?:-[a-z0-9]+(?:[.-][a-z0-9]+)*)?)$') {
+              throw 'Select a versioned release tag such as v1.0.1.'
+          }
+          $version = $Matches[1]
+          $release = gh api "repos/$env:GH_REPO/releases/tags/$env:RELEASE_TAG" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $release.tag_name -cne $env:RELEASE_TAG) { throw 'Release tag not found.' }
+          $commit = gh api "repos/$env:GH_REPO/commits/$env:RELEASE_TAG" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $commit.sha -cnotmatch '^[0-9a-f]{40}$') { throw 'Cannot resolve release commit.' }
+          if ($env:REPLACE_ASSETS -ne 'true' -and @($release.assets).Count) {
+              throw 'Release already has assets. Explicitly enable replace_assets to rebuild it.'
+          }
+          "sha=$($commit.sha)" >> $env:GITHUB_OUTPUT
+          "RELEASE_SHA=$($commit.sha)" >> $env:GITHUB_ENV
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+      - name: Check out unmodified tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          path: source
+          persist-credentials: false
+      - name: Set up native checks for tagged source
+        uses: ./tooling/.github/actions/setup-native
+        with:
+          analysis: "true"
+          working-directory: source
+      - name: Check tagged source
+        run: |
+          $version = [IO.File]::ReadAllText('source/version.txt').Trim()
+          if ($version -cne $env:RELEASE_VERSION) { throw 'Tag and source version do not match.' }
+          ./source/tools/check.ps1 -Label dev -Jobs 4 -BuildDirectory "$env:RUNNER_TEMP/release-build"
+      - name: Check AddressSanitizer
+        # Historical tags use shared /Zi PDBs, which cannot be safely wrapped by sccache.
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ""
+          CMAKE_CXX_COMPILER_LAUNCHER: ""
+        run: ./source/tools/build.ps1 -Preset asan -Jobs 4 -BuildDirectory "$env:RUNNER_TEMP/asan-build"
+      - name: Package checked production DLL
+        id: package
+        run: |
+          ./tooling/tools/package.ps1 -PackageDirectory "source/dist/ern-relics-$env:RELEASE_VERSION-dev" -Version $env:RELEASE_VERSION -OutputDirectory artifacts
+      - name: Record tagged source and build tooling
+        run: |
+          uv run --project source --locked python tooling/tools/ci/release_source.py record --source source --tooling tooling --tag $env:RELEASE_TAG --source-commit $env:RELEASE_SHA --artifacts artifacts
+          if ($LASTEXITCODE -ne 0) { throw 'Source provenance validation failed.' }
+      - name: Attest GitHub build provenance
+        id: build_attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            artifacts/*.zip
+            artifacts/*.sha256
+            artifacts/*.source.json
+      - name: Attest tagged source identity
+        id: source_attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            artifacts/*.zip
+            artifacts/*.sha256
+            artifacts/*.source.json
+          predicate-type: https://github.com/demondobf/ern-relics/attestations/release-source/v1
+          predicate-path: artifacts/ern-relics-${{ env.RELEASE_VERSION }}.source.json
+      - name: Verify attestations before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $signer = "$env:GH_REPO/.github/workflows/release.yml"
+          $archive = "artifacts/ern-relics-$env:RELEASE_VERSION.zip"
+          foreach ($path in @($archive, "$archive.sha256", "artifacts/ern-relics-$env:RELEASE_VERSION.source.json")) {
+              gh attestation verify $path --repo $env:GH_REPO --signer-workflow $signer --signer-digest $env:GITHUB_SHA --deny-self-hosted-runners
+              if ($LASTEXITCODE -ne 0) { throw "Build attestation verification failed: $path" }
+          }
+          gh attestation verify $archive --repo $env:GH_REPO --signer-workflow $signer --signer-digest $env:GITHUB_SHA --deny-self-hosted-runners --predicate-type https://github.com/demondobf/ern-relics/attestations/release-source/v1 --format json > "$env:RUNNER_TEMP/source-attestation.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Tagged source attestation verification failed.' }
+          uv run --project source --locked python tooling/tools/ci/release_source.py verify --record "artifacts/ern-relics-$env:RELEASE_VERSION.source.json" --verification "$env:RUNNER_TEMP/source-attestation.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Attested source differs from the checked release source.' }
+      - name: Preserve downloadable attestation bundles
+        env:
+          BUILD_BUNDLE: ${{ steps.build_attestation.outputs.bundle-path }}
+          SOURCE_BUNDLE: ${{ steps.source_attestation.outputs.bundle-path }}
+        run: |
+          Copy-Item -LiteralPath $env:BUILD_BUNDLE -Destination "artifacts/ern-relics-$env:RELEASE_VERSION.build-provenance.sigstore.json"
+          Copy-Item -LiteralPath $env:SOURCE_BUNDLE -Destination "artifacts/ern-relics-$env:RELEASE_VERSION.source-provenance.sigstore.json"
+      - name: Publish verified release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $commit = gh api "repos/$env:GH_REPO/commits/$env:RELEASE_TAG" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $commit.sha -cne $env:RELEASE_SHA) { throw 'Release tag changed during the build.' }
+          $arguments = @('release', 'upload', $env:RELEASE_TAG) + @(Get-ChildItem -LiteralPath artifacts -File | ForEach-Object FullName)
+          if ($env:REPLACE_ASSETS -eq 'true') { $arguments += '--clobber' }
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed.' }
+      - name: Retain candidate artifacts for recovery
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ env.RELEASE_VERSION }}-${{ github.run_attempt }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 14

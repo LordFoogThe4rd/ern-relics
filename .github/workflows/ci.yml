@@ -49,6 +49,9 @@ jobs:
       - name: Test CI change selection
         run: uv run --locked python -m tests.tooling.ci_changes_tests
 
+      - name: Test release provenance validation
+        run: uv run --locked python -m tests.tooling.release_source_tests
+
   windows:
     name: Windows checks
     needs: quick

@@ -163,10 +163,11 @@ merging. You can also run **CI > Run workflow** on the release PR's branch. See
 
 Merging the release PR creates a `v<version>` tag and GitHub Release. The
 [Release workflow](../.github/workflows/release.yml) runs on pushes to `main` or
-manual runs on `main`. When it creates a release, it builds and verifies the exact
+manual runs. When it creates a release, it builds and verifies the exact
 release commit, including clang-tidy and AddressSanitizer, then attaches
 `ern-relics-<version>.zip` and its `.zip.sha256` checksum. Ordinary pushes only
-update the release PR. Packaging runs only when Release Please creates a release.
+update the release PR. Packaging runs when Release Please creates a release or
+when a manual run selects an existing release tag.
 New pushes do not cancel an active release run. CI has read-only
 repository access and runs independently; release jobs have write access.
 
@@ -187,3 +188,54 @@ in `dist/`. Existing release output is never replaced. Use
 
 Complete in-game acceptance before publishing. Upload the ZIP to Nexus Mods.
 Users can import the same ZIP into ME3.
+
+## Release attestations and rebuilds
+
+Release builds use separate checkouts for the selected source tag and the workflow
+commit's tooling. Source compilation, tests, clang-tidy, and AddressSanitizer run
+from the unmodified tagged checkout. Sanitizer compilation bypasses sccache so
+historical tags using shared MSVC `/Zi` PDBs keep their original compiler flags
+without cache-wrapper collisions. The workflow's packager can repair old release
+tooling without changing the tagged code. Before attesting, the source validator
+checks both checkout commits and cleanliness, dependency pins and origins, ZIP
+contents, the checksum, and equality with the checked production package.
+
+The release publishes two GitHub attestations for the ZIP, checksum, and source
+record. The standard build attestation identifies the GitHub-hosted workflow and
+its commit. The custom predicate
+`https://github.com/demondobf/ern-relics/attestations/release-source/v1` records the
+actual source tag and commit separately from that tooling commit. The versioned
+`.source.json` file contains the same claim. The release also includes downloadable
+Sigstore bundles for offline verification. Neither kind of attestation is a claim
+that the program is free of defects or has passed in-game acceptance.
+
+For an existing release, select **Release > Run workflow**, choose the branch or
+commit containing the repaired tooling, and enter its tag, such as `v1.0.1`.
+Enable **Replace existing assets** only when intentionally replacing that release's
+files. The tag is never moved. New bytes and attestations must pass verification
+before upload. A CI rebuild may change ZIP and DLL hashes; use the newly published
+checksum. Candidate artifacts are retained for 14 days, including after an upload
+failure. Repository attestations require a public repository or an eligible
+GitHub Enterprise Cloud plan for private repositories.
+
+After downloading a release, verify its build identity with the GitHub CLI:
+
+```powershell
+gh attestation verify ern-relics-1.0.1.zip --repo demondobf/ern-relics --signer-workflow demondobf/ern-relics/.github/workflows/release.yml --deny-self-hosted-runners
+```
+
+To inspect the signed source identity as JSON:
+
+```powershell
+gh attestation verify ern-relics-1.0.1.zip --repo demondobf/ern-relics --signer-workflow demondobf/ern-relics/.github/workflows/release.yml --predicate-type https://github.com/demondobf/ern-relics/attestations/release-source/v1 --format json
+```
+
+Compare `verificationResult.statement.predicate.sourceCommit` with the release
+tag, and `toolingCommit` with the workflow revision you trust. Add
+`--signer-digest <tooling-commit>` to require that exact workflow commit. The CLI's
+`--source-ref` and `--source-digest` options refer to the workflow's execution
+context; they do not replace checking the separately attested application tag.
+For offline bundle verification, add
+`--bundle ern-relics-1.0.1.build-provenance.sigstore.json` to the first command.
+See [GitHub's attestation documentation](https://docs.github.com/en/actions/concepts/security/artifact-attestations)
+for the trust model and CLI requirements.

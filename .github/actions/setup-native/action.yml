@@ -1,6 +1,9 @@
 name: Set up native checks
 description: Prepare locked Python tools and cached native dependencies on Windows.
 inputs:
+  working-directory:
+    description: Checkout containing the pinned source and build tools.
+    default: "."
   analysis:
     description: Install the pinned clang-tidy analyzer.
     default: "false"
@@ -12,9 +15,10 @@ runs:
       with:
         version: "0.13.6"
         enable-cache: true
-        cache-dependency-glob: uv.lock
+        cache-dependency-glob: ${{ inputs.working-directory }}/uv.lock
     - name: Set up Python tools
       shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
       run: |
         uv sync --locked
         if ($LASTEXITCODE -ne 0) { throw 'Python tooling setup failed.' }
@@ -23,18 +27,20 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}/ern-relics-llvm
-        key: llvm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pyproject.toml', 'tools/ci/setup-llvm.ps1') }}
+        key: llvm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(format('{0}/pyproject.toml', inputs.working-directory), format('{0}/tools/ci/setup-llvm.ps1', inputs.working-directory)) }}
     - name: Set up pinned LLVM
       if: inputs.analysis == 'true'
       shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
       run: ./tools/ci/setup-llvm.ps1
     - name: Cache pinned native sources
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: third_party
-        key: sources-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('sources.lock.json', 'tools/bootstrap.ps1') }}
+        path: ${{ inputs.working-directory }}/third_party
+        key: sources-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(format('{0}/sources.lock.json', inputs.working-directory), format('{0}/tools/bootstrap.ps1', inputs.working-directory)) }}
     - name: Bootstrap dependencies
       shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
       env:
         ERN_CI_ANALYSIS: ${{ inputs.analysis }}
       run: ./tools/bootstrap.ps1 -SkipAnalysis:($env:ERN_CI_ANALYSIS -ne 'true')
@@ -50,6 +56,7 @@ runs:
         restore-keys: sccache-v1-0.19.0-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-
     - name: Enable compiler cache
       shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
       run: |
         "SCCACHE_DIR=$env:RUNNER_TEMP/sccache" >> $env:GITHUB_ENV
         "SCCACHE_CACHE_SIZE=512M" >> $env:GITHUB_ENV

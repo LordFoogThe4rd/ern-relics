@@ -25,6 +25,11 @@ editing.
 2. Drag and drop the ZIP into ME3.
 3. Click **Merge**.
 
+The release ZIP includes a SHA-256 checksum. Attested CI rebuilds also publish
+GitHub build provenance, a signed tagged-source record, and downloadable Sigstore
+bundles. Follow the [release verification instructions](docs/development.md#release-attestations-and-rebuilds)
+to check the workflow and source commit before installing.
+
 ## Edit relics
 
 1. Launch your profile and load a character in **Roundtable Hold**.

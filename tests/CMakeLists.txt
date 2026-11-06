@@ -55,6 +55,8 @@ add_core_check(effect_choices ui/effect_choices_tests.cpp "ui;relics" ern_game_d
 target_link_libraries(ern_effect_choices_tests PRIVATE ern_ui)
 
 # Build checks.
+add_test(NAME release_source COMMAND "${Python3_EXECUTABLE}" -m tests.tooling.release_source_tests)
+set_tests_properties(release_source PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" LABELS "build" TIMEOUT 30)
 add_test(NAME compilation COMMAND "${Python3_EXECUTABLE}" -m tools.checks.compilation
     --build-directory "${CMAKE_BINARY_DIR}")
 set_tests_properties(compilation PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" LABELS "build" TIMEOUT 30)
