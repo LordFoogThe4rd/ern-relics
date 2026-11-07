@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>")
-project(ern_relics VERSION 1.0.1 LANGUAGES C CXX) # x-release-please-version
+project(ern_relics VERSION 1.0.2 LANGUAGES C CXX) # x-release-please-version
 
 if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "ERN Relics requires 64-bit Windows.")
