@@ -211,11 +211,11 @@ def main():
                     'The live relic controller does not match the supported App 1.03.3 layout'
                 )
             count = struct.unpack('<I', read(controller + 0x20, 4))[0]
-            if count != 24:
-                raise RuntimeError('Unexpected native relic-controller entry count')
-            cached = struct.unpack('<24I', read(pointer(controller + 0x18), 96))
+            if count not in range(6, 128, 6):
+                raise RuntimeError(f'Unexpected native relic-controller entry count: {count}')
+            cached = struct.unpack(f'<{count}I', read(pointer(controller + 0x18), count * 4))
             print(
-                f'Native relic controller: {controller:#x}, player={player:#x}, cached handles={cached}'
+                f'Native relic controller: {controller:#x}, player={player:#x}, entries={count}, cached handles={cached}'
             )
             active = pointer(controller + 0x10)
             node = pointer(active + 8)

@@ -1,7 +1,103 @@
 #include "game/relic_equipment.hpp"
 #include "game/game_layout.hpp"
+#include <algorithm>
+#include <cstring>
+#include <limits>
 
 namespace ern {
+namespace {
+template <std::size_t N>
+std::optional<std::uint32_t> read_u32_operand(const MemoryRead &read, Address address,
+                                              const std::array<std::uint8_t, N> &signature,
+                                              std::size_t offset) {
+    auto code = signature;
+    if (!read(address, std::as_writable_bytes(std::span(code))))
+        return {};
+    std::uint32_t value{};
+    std::memcpy(&value, code.data() + offset, sizeof(value));
+    std::fill_n(code.begin() + offset, sizeof(value), std::uint8_t{});
+    if (code != signature)
+        return {};
+    return value;
+}
+
+std::optional<RelicEquipFailure> check_cache_capacity(const MemoryRead &read, Address module,
+                                                      Address controller) {
+    const auto fail = [](std::string_view check, Address address,
+                         std::optional<Address> actual = {}, std::optional<Address> expected = {}) {
+        return RelicEquipFailure{check, address, actual, expected, {}, true};
+    };
+    // mov edx, imm32; xor bl, bl; call the native cache allocator.
+    constexpr std::array<std::uint8_t, 12> initializer{0xBA, 0,    0,    0,    0, 0x32,
+                                                       0xDB, 0xE8, 0xFE, 0xF8, 0, 0};
+    const auto init_address = module + game_layout::relic_cache_initializer_rva;
+    const auto allocation = read_u32_operand(read, init_address, initializer, 1);
+    if (!allocation)
+        return fail("controller.initializer_code", init_address);
+
+    // cmp r12d, imm8; jge end. The loop advances through groups of six relics.
+    constexpr std::array<std::uint8_t, 6> loop{0x41, 0x83, 0xFC, 0, 0x7D, 0x0B};
+    const auto loop_address = module + game_layout::relic_cache_loop_limit_rva;
+    auto loop_code = loop;
+    if (!read(loop_address, std::as_writable_bytes(std::span(loop_code))))
+        return fail("controller.loop_code", loop_address);
+    const auto limit = loop_code[3];
+    loop_code[3] = 0;
+    if (loop_code != loop)
+        return fail("controller.loop_code", loop_address);
+
+    constexpr auto max_loop_count = std::uint32_t(std::numeric_limits<std::int8_t>::max());
+    if (*allocation < relic_slot_count || *allocation > max_loop_count ||
+        *allocation % relic_slot_count != 0)
+        return fail("controller.allocation_count", init_address + 1, allocation);
+    if (limit != *allocation)
+        return fail("controller.loop_limit", loop_address + 3, limit, allocation);
+    const auto count_address = controller + game_layout::effect_count;
+    const auto count = read_value<std::uint32_t>(read, count_address);
+    if (count != *allocation)
+        return fail("controller.entry_count", count_address, count, allocation);
+
+    // mov r9d, imm32; sub r9, [rbx+0x20]. Refresh copies the scratch bitmap
+    // into the live vector<bool> using the scratch length as its copy bound.
+    constexpr std::array<std::uint8_t, 10> scratch{0x41, 0xB9, 0, 0, 0, 0, 0x4C, 0x2B, 0x4B, 0x20};
+    const auto scratch_address = module + game_layout::relic_scratch_bitmap_initializer_rva;
+    const auto scratch_bits = read_u32_operand(read, scratch_address, scratch, 2);
+    if (!scratch_bits)
+        return fail("controller.scratch_bitmap_code", scratch_address);
+    const auto expected_bits = *allocation * relic_slot_count;
+    if (*scratch_bits != expected_bits)
+        return fail("controller.scratch_bitmap_bits", scratch_address + 2, scratch_bits,
+                    expected_bits);
+    const auto live_bits_address = controller + game_layout::effect_bitmap_bits;
+    const auto live_bits = read_value<Address>(read, live_bits_address);
+    if (!live_bits || *live_bits < *scratch_bits)
+        return fail("controller.live_bitmap_bits", live_bits_address, live_bits, scratch_bits);
+
+    const auto words_address = controller + game_layout::effect_bitmap_words;
+    const auto words = read_value<std::array<Address, 2>>(read, words_address);
+    std::optional<Address> storage_bytes;
+    if (words && (*words)[0] && (*words)[0] <= (*words)[1])
+        storage_bytes = (*words)[1] - (*words)[0];
+    constexpr auto word_bits = std::numeric_limits<std::uint32_t>::digits;
+    const auto required_bytes =
+        ((*scratch_bits + word_bits - 1) / word_bits) * sizeof(std::uint32_t);
+    if (!storage_bytes || *storage_bytes < required_bytes)
+        return fail("controller.live_bitmap_storage", words_address, storage_bytes, required_bytes);
+    return {};
+}
+} // namespace
+
+std::optional<std::string> relic_capacity_error(const RelicEquipFailure &failure) {
+    if (!failure.capacity_check)
+        return {};
+    auto detail = "Relic controller check failed (" + std::string(failure.check) + ").";
+    if (failure.actual)
+        detail += " Found " + std::to_string(*failure.actual) + ".";
+    if (failure.expected)
+        detail += " Expected " + std::to_string(*failure.expected) + ".";
+    return detail;
+}
+
 RelicEquipReadResult read_relic_equip_context(const MemoryRead &read, RelicRoots roots,
                                               Address module) {
     const auto observed = read_relic_owner(read, roots);
@@ -56,10 +152,10 @@ RelicEquipReadResult read_relic_equip_context(const MemoryRead &read, RelicRoots
         !matches(*controller, module + game_layout::relic_effect_vtable_rva, "controller.vtable") ||
         !matches(*controller + game_layout::effect_owner, *character, "controller.owner") ||
         !matches(*controller + game_layout::effect_equipment, *equipment, "controller.equipment") ||
-        !matches(*controller + game_layout::effect_manager, *effects, "controller.effects") ||
-        !matches(*controller + game_layout::effect_count, game_layout::effect_entry_count,
-                 "controller.entry_count"))
+        !matches(*controller + game_layout::effect_manager, *effects, "controller.effects"))
         return failure;
+    if (const auto capacity = check_cache_capacity(read, module, *controller))
+        return *capacity;
     const auto cached =
         pointer(*controller + game_layout::effect_cache, "controller.cache_pointer");
     if (!cached)
@@ -93,6 +189,7 @@ EditResult replace_equipped_native(const MemoryRead &read, const MemoryWrite &wr
                                    Address character, const RelicEquipCalls &calls,
                                    const RelicEquipReport &report) {
     std::optional<RelicEquipContext> original;
+    std::optional<std::string> capacity_error;
     const auto equipment = request.owner.player + game_layout::player_equipment;
     const auto inventory = equipment + game_layout::equipment_inventory;
     const auto cycle = [&](RelicEquipStep step) -> RelicEquipResult {
@@ -100,6 +197,8 @@ EditResult replace_equipped_native(const MemoryRead &read, const MemoryWrite &wr
                                 RelicEquipResult result = RelicEquipResult::Unavailable) {
             if (report)
                 report(step, failure);
+            if (result == RelicEquipResult::Unavailable && !original && failure.capacity_check)
+                capacity_error = relic_capacity_error(failure);
             return result;
         };
         const auto observed = read_relic_equip_context(read, request.roots, module);
@@ -188,8 +287,11 @@ EditResult replace_equipped_native(const MemoryRead &read, const MemoryWrite &wr
             return reject(*failure, RelicEquipResult::Failed);
         return RelicEquipResult::Complete;
     };
-    return replace_equipped(read, write, request.roots, request.equipped_offset, request.owner,
-                            request.slot, request.expected, request.replacement, *request.rules,
-                            request.context, cycle);
+    auto result = replace_equipped(read, write, request.roots, request.equipped_offset,
+                                   request.owner, request.slot, request.expected,
+                                   request.replacement, *request.rules, request.context, cycle);
+    if (auto *rejected = std::get_if<EditRejected>(&result); rejected && capacity_error)
+        rejected->detail = std::move(*capacity_error);
+    return result;
 }
 } // namespace ern

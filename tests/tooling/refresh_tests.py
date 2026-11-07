@@ -7,14 +7,14 @@ from pathlib import Path
 from tools.game.verify_refresh import snapshot, verify
 
 
-def capture(effect, affinity):
+def capture(effect, affinity, entries):
     slots = [f'Normal relic 1: inventory index 1, effects ({effect}, 2, 3), curses (-1, -1, -1)']
     slots.extend(
         f'{kind} relic {index}: empty'
         for kind, indices in (('Normal', (2, 3)), ('Deep', (1, 2, 3)))
         for index in indices
     )
-    handles = (1,) + (0,) * 23
+    handles = (1,) + (0,) * (entries - 1)
     weapons = ((10, 20, 30, -1, affinity),) + (None,) * 5
     return '\n'.join(
         [
@@ -32,9 +32,9 @@ class WeaponRefreshVerification(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name).resolve()
 
-    def state(self, name, effect, affinity):
+    def state(self, name, effect, affinity, entries=24):
         path = self.root / name
-        path.write_text(capture(effect, affinity), encoding='utf-8')
+        path.write_text(capture(effect, affinity, entries), encoding='utf-8')
         return snapshot(path)
 
     def test_changed_effect_with_stale_weapon_fails(self):
@@ -58,6 +58,11 @@ class WeaponRefreshVerification(unittest.TestCase):
                 result = verify(before, applied, before, armaments=True)
                 self.assertTrue(result['armament_modifiers_changed'])
                 self.assertTrue(result['undo_restored_armaments'])
+
+    def test_larger_cache(self):
+        before = self.state('before.txt', 100, 100, entries=48)
+        applied = self.state('applied.txt', 200, 200, entries=48)
+        self.assertTrue(verify(before, applied, before)['undo_restored_active_effects'])
 
 
 if __name__ == '__main__':

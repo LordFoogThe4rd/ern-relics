@@ -124,8 +124,11 @@ EditResult commit_native_relic_edit(RelicEditRequest request) {
           << request.expected.handle << " player=0x" << request.owner.player;
     application().log(label.str() + " queued");
     native.diagnostics.store(diagnostics);
-    auto result =
-        native.queue.submit(std::move(request), std::chrono::seconds(2), native_relic_equip_error);
+    const auto read_context = [&native](RelicRoots roots) {
+        return read_relic_equip_context(native.read, roots, native.module);
+    };
+    auto result = native.queue.submit_native(std::move(request), read_context,
+                                             native_relic_equip_error, *diagnostics);
     native.diagnostics.store(nullptr);
     std::string outcome;
     if (const auto *rejected = std::get_if<EditRejected>(&result))

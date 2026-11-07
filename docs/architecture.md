@@ -82,6 +82,15 @@ path. The journal lives beside the DLL, and saved presets live in `presets/`.
 signatures, and offsets. The native adapter binds the game's equipment functions
 and redirects the `PlayerIns` equipment callback's dispatch entry.
 
+The relic controller must report the same cache capacity as the running game's
+allocator and six-slot loop. The adapter verifies the instruction sequences with
+the size operands masked. Refresh copies six scratch bitmap bits per cache entry
+into the live bitmap, so the adapter checks the scratch size and the live bitmap's
+length and backing storage before refreshing. Mods can use a different cache
+size within the supported layout. The adapter also checks controller ownership,
+mode, and the six local relic handles. Capacity failures name the failed check
+before an edit starts.
+
 [ActiveRegulation](../src/app/active_regulation.cpp) observes the active
 `regulation.bin` on a separate file worker. ME3 redirection selects the file.
 The first usable equipment and rule snapshot binds the rule fingerprint until

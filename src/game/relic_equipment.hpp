@@ -21,8 +21,12 @@ struct RelicEquipFailure {
     std::optional<Address> actual;
     std::optional<Address> expected;
     std::optional<std::size_t> slot = {};
+    bool capacity_check = false;
 };
 using RelicEquipReadResult = std::variant<RelicEquipContext, RelicEquipFailure>;
+
+// A capacity mismatch blocks an edit even if the equipment callback cannot claim it.
+std::optional<std::string> relic_capacity_error(const RelicEquipFailure &failure);
 
 // Reads the local player's native controller; never invokes a game function.
 RelicEquipReadResult read_relic_equip_context(const MemoryRead &read, RelicRoots roots,

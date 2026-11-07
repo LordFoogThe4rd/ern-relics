@@ -36,7 +36,7 @@ def snapshot(path):
         raise ValueError(f'{path}: expected a complete --inspect --effects capture')
     handle_ids, active_ids = ast.literal_eval(handles[1]), ast.literal_eval(active[2])
     if (
-        len(handle_ids) != 24
+        len(handle_ids) not in range(6, 128, 6)
         or len(active_ids) != int(active[1])
         or not all(type(value) is int for value in (*handle_ids, *active_ids))
     ):

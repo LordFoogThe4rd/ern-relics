@@ -15,7 +15,17 @@ struct NativeFixture {
     static constexpr auto cache = test::Fixture::base + 0x7000;
     static constexpr auto equipment = test::Fixture::base + 0x7800;
     static constexpr auto effects = test::Fixture::base + 0x7900;
+    static constexpr auto bitmap = test::Fixture::base + 0x7200;
+    static constexpr auto initializer_address =
+        module + ern::game_layout::relic_cache_initializer_rva;
+    static constexpr auto loop_address = module + ern::game_layout::relic_cache_loop_limit_rva;
+    static constexpr auto scratch_address =
+        module + ern::game_layout::relic_scratch_bitmap_initializer_rva;
+    static constexpr auto count_address = controller + ern::game_layout::effect_count;
     test::Fixture memory;
+    std::array<std::uint8_t, 12> initializer{0xBA, 0, 0, 0, 0, 0x32, 0xDB, 0xE8, 0xFE, 0xF8, 0, 0};
+    std::array<std::uint8_t, 6> loop{0x41, 0x83, 0xFC, 0, 0x7D, 0x0B};
+    std::array<std::uint8_t, 10> scratch{0x41, 0xB9, 0, 0, 0, 0, 0x4C, 0x2B, 0x4B, 0x20};
     std::size_t slot;
     ern::RelicSnapshot before;
     std::shared_ptr<const ern::RelicValidator> rules =
@@ -39,8 +49,7 @@ struct NativeFixture {
         memory.put(controller + ern::game_layout::effect_manager, effects);
         memory.put(controller + ern::game_layout::effect_equipment, equipment);
         memory.put(controller + ern::game_layout::effect_cache, cache);
-        memory.put(controller + ern::game_layout::effect_count,
-                   ern::game_layout::effect_entry_count);
+        set_capacity(24);
         for (std::size_t i = 0; i < ern::relic_slot_count; ++i) {
             const auto handle = i < 3 || i == slot ? std::uint32_t(0xC0800001 + i) : 0u;
             memory.put(test::Fixture::base + 0x1000 + ern::game_layout::equipped_relics + i * 4,
@@ -50,6 +59,42 @@ struct NativeFixture {
         before = std::get<ern::RelicSnapshot>(
             ern::read_equipped(memory.reader(), memory.roots, ern::game_layout::equipped_relics));
         active = before.relics.slots[slot]->effects;
+    }
+
+    void set_bitmap_sizes(std::uint32_t scratch_bits, ern::Address live_bits,
+                          ern::Address live_bytes) {
+        std::memcpy(scratch.data() + 2, &scratch_bits, sizeof(scratch_bits));
+        memory.put(controller + ern::game_layout::effect_bitmap_bits, live_bits);
+        memory.put(controller + ern::game_layout::effect_bitmap_words,
+                   std::array{bitmap, bitmap + live_bytes});
+    }
+
+    void set_capacity(std::uint8_t capacity) {
+        initializer[1] = capacity;
+        loop[3] = capacity;
+        memory.put(count_address, std::uint32_t(capacity));
+        const auto bits = std::uint32_t(capacity) * 6;
+        set_bitmap_sizes(bits, bits, ((bits + 31) / 32) * 4);
+    }
+
+    bool read(ern::Address address, std::span<std::byte> output) const {
+        if (address == initializer_address && output.size() == initializer.size()) {
+            std::memcpy(output.data(), initializer.data(), output.size());
+            return true;
+        }
+        if (address == loop_address && output.size() == loop.size()) {
+            std::memcpy(output.data(), loop.data(), output.size());
+            return true;
+        }
+        if (address == scratch_address && output.size() == scratch.size()) {
+            std::memcpy(output.data(), scratch.data(), output.size());
+            return true;
+        }
+        return memory.read(address, output);
+    }
+
+    ern::MemoryRead reader() const {
+        return [this](auto address, auto output) { return read(address, output); };
     }
 
     ern::Effects inventory() {
@@ -124,7 +169,7 @@ struct NativeFixture {
             return true;
         };
         return ern::replace_equipped_native(
-            memory.reader(), write, request, module, callback_character, calls(),
+            reader(), write, request, module, callback_character, calls(),
             [this](ern::RelicEquipStep, const ern::RelicEquipFailure &failure) {
                 rejections.push_back(failure.check);
             });
@@ -268,29 +313,15 @@ void native_sequence_recovery() {
 }
 
 void controller_contract() {
-    test::Fixture memory;
-    constexpr ern::Address module = 0x140000000;
-    constexpr auto character = test::Fixture::base + 0x5000;
-    constexpr auto controller = test::Fixture::base + 0x6000;
-    constexpr auto cache = test::Fixture::base + 0x7000;
-    constexpr auto equipment = test::Fixture::base + 0x7800;
-    constexpr auto effects = test::Fixture::base + 0x7900;
-    memory.put(character + ern::game_layout::relic_effect_controller, controller);
-    memory.put(character + ern::game_layout::character_data, test::Fixture::base + 0x1000);
-    memory.put(character + ern::game_layout::character_equipment, equipment);
-    memory.put(character + ern::game_layout::character_effects, effects);
-    memory.put(controller, module + ern::game_layout::relic_effect_vtable_rva);
-    memory.put(controller + 8, character);
-    memory.put(controller + 0x10, effects);
-    memory.put(controller + 0x28, equipment);
-    memory.put(controller + 0x18, cache);
-    memory.put(controller + 0x20, std::uint32_t(24));
-    for (std::size_t slot = 0; slot < ern::relic_slot_count; ++slot) {
-        const auto handle = slot < 3 ? std::uint32_t(0xC0800001 + slot) : 0u;
-        memory.put(test::Fixture::base + 0x1000 + 0x2F4 + slot * 4, handle);
-        memory.put(cache + slot * 4, handle);
-    }
-    const auto observed = ern::read_relic_equip_context(memory.reader(), memory.roots, module);
+    NativeFixture fixture;
+    auto &memory = fixture.memory;
+    constexpr auto module = NativeFixture::module;
+    constexpr auto character = NativeFixture::character;
+    constexpr auto controller = NativeFixture::controller;
+    constexpr auto cache = NativeFixture::cache;
+    constexpr auto equipment = NativeFixture::equipment;
+    constexpr auto effects = NativeFixture::effects;
+    const auto observed = ern::read_relic_equip_context(fixture.reader(), memory.roots, module);
     const auto *context = std::get_if<ern::RelicEquipContext>(&observed);
     require(context && context->controller == controller && context->character == character &&
                 context->equipment == equipment && context->cached == context->equipped &&
@@ -311,25 +342,19 @@ void controller_contract() {
           std::tuple{test::Fixture::base + 0x8000 + 0x174E8, ern::Address(0),
                      "character.pointer"}}) {
         memory.put(address, value);
-        const auto failed = ern::read_relic_equip_context(memory.reader(), memory.roots, module);
+        const auto failed = ern::read_relic_equip_context(fixture.reader(), memory.roots, module);
         const auto &failure = std::get<ern::RelicEquipFailure>(failed);
         require(failure.check == check && failure.address == address && failure.actual == value,
                 "Native rejection did not identify the failed field and actual value");
         memory.bytes = original;
     }
-    memory.put(controller + 0x20, std::uint32_t(6));
-    const auto count = std::get<ern::RelicEquipFailure>(
-        ern::read_relic_equip_context(memory.reader(), memory.roots, module));
-    require(count.check == "controller.entry_count" && count.actual == 6 && count.expected == 24,
-            "Entry count diagnostic lost the observed and expected counts");
-    memory.bytes = original;
     for (const auto &[address, check] :
          {std::pair{controller, "controller.vtable"},
           std::pair{controller + 0x38, "controller.mode_read"},
           std::pair{cache, "cached_handles.read"},
           std::pair{test::Fixture::base + 0x1000 + 0x2F4, "equipped_handles.read"}}) {
         const auto unreadable = [&](ern::Address location, std::span<std::byte> bytes) {
-            return location != address && memory.read(location, bytes);
+            return location != address && fixture.read(location, bytes);
         };
         const auto failure = std::get<ern::RelicEquipFailure>(
             ern::read_relic_equip_context(unreadable, memory.roots, module));
@@ -339,13 +364,84 @@ void controller_contract() {
     auto changing = [&](ern::Address address, std::span<std::byte> bytes) {
         if (address == cache)
             memory.put(character + 0x650, ern::Address(0));
-        return memory.read(address, bytes);
+        return fixture.read(address, bytes);
     };
     const auto changed = std::get<ern::RelicEquipFailure>(
         ern::read_relic_equip_context(changing, memory.roots, module));
     require(changed.check == "controller.changed" && changed.actual == 0 &&
                 changed.expected == controller,
             "Controller replacement during a read did not report its values");
+}
+
+void controller_capacity() {
+    for (const auto capacity : {std::uint8_t(48), std::uint8_t(72)}) {
+        NativeFixture fixture;
+        fixture.set_capacity(capacity);
+        require(std::holds_alternative<ern::Relic>(fixture.commit()) && fixture.refreshes == 2,
+                "A consistent larger cache failed the native edit cycle");
+    }
+    for (const auto &[initializer, loop, count, check, actual, expected] :
+         {std::tuple{48, 48, 24, "controller.entry_count", 24, 48},
+          std::tuple{48, 24, 48, "controller.loop_limit", 24, 48},
+          std::tuple{0, 0, 0, "controller.allocation_count", 0, -1},
+          std::tuple{25, 25, 25, "controller.allocation_count", 25, -1},
+          std::tuple{132, 132, 132, "controller.allocation_count", 132, -1}}) {
+        NativeFixture fixture;
+        fixture.initializer[1] = static_cast<std::uint8_t>(initializer);
+        fixture.loop[3] = static_cast<std::uint8_t>(loop);
+        fixture.memory.put(NativeFixture::count_address, static_cast<std::uint32_t>(count));
+        const auto failure = std::get<ern::RelicEquipFailure>(
+            ern::read_relic_equip_context(fixture.reader(), fixture.memory.roots, fixture.module));
+        require(failure.check == check && failure.actual == static_cast<ern::Address>(actual) &&
+                    failure.expected == (expected < 0 ? std::optional<ern::Address>{}
+                                                      : static_cast<ern::Address>(expected)),
+                "A capacity mismatch lost its check or values");
+        const auto detail = ern::relic_capacity_error(failure);
+        const auto result = fixture.commit();
+        require(detail && detail->find(check) != std::string::npos &&
+                    std::get<ern::EditRejected>(result).detail == *detail &&
+                    fixture.assigned_positions.empty() && fixture.writes == 0,
+                "An inconsistent capacity lost its visible rejection or changed equipment");
+    }
+    for (const bool initializer : {false, true}) {
+        NativeFixture fixture;
+        if (initializer)
+            fixture.initializer[7] = 0xE9;
+        else
+            fixture.loop[4] = 0xEB;
+        const auto result = fixture.commit();
+        const auto check = initializer ? "controller.initializer_code" : "controller.loop_code";
+        require(std::get<ern::EditRejected>(result).detail.find(check) != std::string::npos &&
+                    fixture.assigned_positions.empty() && fixture.writes == 0,
+                "Unexpected controller instructions were not reported before editing");
+    }
+}
+
+void controller_bitmap_capacity() {
+    for (const auto &[scratch, live, storage, check, observed, expected] :
+         {std::tuple{144u, 288u, 36u, "controller.scratch_bitmap_bits", 144u, 288u},
+          std::tuple{288u, 144u, 20u, "controller.live_bitmap_bits", 144u, 288u},
+          std::tuple{288u, 288u, 20u, "controller.live_bitmap_storage", 20u, 36u}}) {
+        NativeFixture fixture;
+        fixture.set_capacity(48);
+        fixture.set_bitmap_sizes(scratch, live, storage);
+        const auto result = fixture.commit();
+        const auto detail = "Relic controller check failed (" + std::string(check) + "). Found " +
+                            std::to_string(observed) + ". Expected " + std::to_string(expected) +
+                            ".";
+        require(std::get<ern::EditRejected>(result).detail == detail &&
+                    fixture.assigned_positions.empty() && fixture.refreshes == 0 &&
+                    fixture.writes == 0,
+                "A partial bitmap resize reached the native refresh or lost its diagnostic");
+    }
+
+    NativeFixture fixture;
+    fixture.scratch[1] = 0xB8;
+    const auto result = fixture.commit();
+    require(std::get<ern::EditRejected>(result).detail.find("controller.scratch_bitmap_code") !=
+                    std::string::npos &&
+                fixture.assigned_positions.empty() && fixture.refreshes == 0,
+            "An unknown scratch bitmap initializer reached the native refresh");
 }
 
 enum class Failure { None, Unavailable, Unequip, Write, Verification, Equip, Recovery, Owner };
@@ -479,6 +575,8 @@ void rejected_before_unequip() {
 int main() {
     return test::run("native context, unequip/write/equip ordering and recovery", [] {
         controller_contract();
+        controller_capacity();
+        controller_bitmap_capacity();
         native_sequence_success();
         native_sequence_initial_rejections();
         native_sequence_context_drift();

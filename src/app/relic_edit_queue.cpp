@@ -1,7 +1,28 @@
 #include "app/relic_edit_queue.hpp"
+#include "app/native_edit_diagnostics.hpp"
 #include <algorithm>
 
 namespace ern {
+EditResult RelicEditQueue::submit_native(RelicEditRequest request,
+                                         const ReadEquipContext &read_context,
+                                         const EditAvailability &callback_error,
+                                         NativeEditDiagnostics &diagnostics,
+                                         std::chrono::milliseconds timeout) {
+    const auto availability = [&, roots = request.roots] {
+        if (auto error = callback_error())
+            return error;
+        const auto observed = read_context(roots);
+        const auto *failure = std::get_if<RelicEquipFailure>(&observed);
+        if (!failure)
+            return std::optional<std::string>{};
+        auto error = relic_capacity_error(*failure);
+        if (error)
+            diagnostics.reject("preflight", *failure);
+        return error;
+    };
+    return submit(std::move(request), timeout, availability);
+}
+
 EditResult RelicEditQueue::submit(RelicEditRequest request, std::chrono::milliseconds timeout,
                                   const EditAvailability &availability) {
     const auto message = std::make_shared<Message>(Message{std::move(request)});

@@ -18,6 +18,9 @@ inline constexpr std::uint32_t forsaken_hollows_app = 3531720;
 // Native relic effect controller for executable 1.3.3.0.
 inline constexpr std::size_t relic_effect_controller = 0x650;
 inline constexpr std::uint32_t relic_effect_vtable_rva = 0x2C1AB28;
+inline constexpr std::uint32_t relic_cache_initializer_rva = 0x4FF046;
+inline constexpr std::uint32_t relic_cache_loop_limit_rva = 0x4FEE72;
+inline constexpr std::uint32_t relic_scratch_bitmap_initializer_rva = 0x4FEABD;
 // Native equipment update, slot setter, inventory lookup, and full equip refresh.
 inline constexpr std::uint32_t equipment_update_rva = 0x675D20;
 // CS::PlayerIns vtable, slot 17 (+0x88). Redirect data, leaving protected code intact.
@@ -32,7 +35,7 @@ inline constexpr std::size_t character_effects = 0x190;
 inline constexpr std::size_t effect_owner = 8, effect_cache = 0x18;
 inline constexpr std::size_t effect_manager = 0x10, effect_equipment = 0x28;
 inline constexpr std::size_t effect_count = 0x20, effect_mode = 0x38;
-inline constexpr std::uint32_t effect_entry_count = 24;
+inline constexpr std::size_t effect_bitmap_words = 0x48, effect_bitmap_bits = 0x60;
 inline constexpr std::string_view item_signature =
     "8B 03 89 44 24 40 48 8B 0D ?? ?? ?? ?? 48 85 C9";
 inline constexpr std::string_view game_signature = "48 8B 05 ?? ?? ?? ?? 48 8B 70 08";

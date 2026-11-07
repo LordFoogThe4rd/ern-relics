@@ -1,4 +1,5 @@
 #include "app/relic_edit_queue.hpp"
+#include "app/native_edit_diagnostics.hpp"
 #include "support/check.hpp"
 #include "support/synthetic_rules.hpp"
 #include <future>
@@ -34,6 +35,35 @@ ern::EditResult success(ern::RelicEditRequest edit) {
     return ern::Relic{edit.expected.handle, edit.expected.item_id, edit.replacement};
 }
 
+void native_capacity_rejection() {
+    ern::RelicEditQueue queue;
+    ern::NativeEditDiagnostics diagnostics;
+    const auto edit = request();
+    unsigned int reads = 0;
+    const auto read_context = [&](ern::RelicRoots roots) -> ern::RelicEquipReadResult {
+        require(roots.game_data_global == edit.roots.game_data_global,
+                "Native preflight lost the queued roots");
+        ++reads;
+        return ern::RelicEquipFailure{"controller.entry_count", 0x6020, 24, 48, {}, true};
+    };
+    const auto callback_error = [] { return std::optional<std::string>{}; };
+    const auto result = queue.submit_native(edit, read_context, callback_error, diagnostics, 0ms);
+    const auto &rejected = std::get<ern::EditRejected>(result);
+    bool executed = false;
+    queue.process([&](ern::RelicEditRequest pending) {
+        executed = true;
+        return success(std::move(pending));
+    });
+    require(
+        reads == 1 && rejected.reason == ern::EditRejectReason::EquipUnavailable &&
+            rejected.detail ==
+                "Relic controller check failed (controller.entry_count). Found 24. Expected 48." &&
+            diagnostics.summary().find("stage=preflight check=controller.entry_count") !=
+                std::string::npos &&
+            !queue.pending_roots() && !executed,
+        "A native capacity mismatch timed out or left an edit available to the callback");
+}
+
 void availability_exception_cancels() {
     for (const unsigned int throw_on : {1u, 2u}) {
         ern::RelicEditQueue queue;
@@ -67,6 +97,7 @@ void availability_exception_cancels() {
 
 int main() {
     return test::run("owned edit handoff, cancellation and executing deadlines", [] {
+        native_capacity_rejection();
         availability_exception_cancels();
         ern::RelicEditQueue queue;
         auto input = request();
