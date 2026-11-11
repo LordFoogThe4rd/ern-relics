@@ -38,8 +38,9 @@ int main() {
                 "Batch review omitted pending relics or effects");
         auto invalid_drafts = make_drafts();
         invalid_drafts[0]->effects.rows[0].effect = 10000;
-        require(ern::review_drafts(invalid_drafts, &batch_live, validator, context).blocked,
-                "An invalid draft was not blocked in normal mode");
+        require(
+            ern::review_drafts(invalid_drafts, &batch_live, validator, context).blocked.has_value(),
+            "An invalid draft was not blocked in normal mode");
         const auto forced =
             ern::review_drafts(invalid_drafts, &batch_live, validator, context, true);
         require(!forced.blocked && forced.changes[0] &&
