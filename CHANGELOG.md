@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/LordFoogThe4rd/ern-relics/compare/v1.0.2...v1.1.0) (2026-11-11)
+
+
+### Features
+
+* allow invalid relic effect placement ([0edf69f](https://github.com/LordFoogThe4rd/ern-relics/commit/0edf69f680ba6e56daee7cc4a8a68d069f1ac541))
+
 ## [1.0.2](https://github.com/demondobf/ern-relics/compare/v1.0.1...v1.0.2) (2026-11-07)
 
 
