@@ -11,7 +11,8 @@ std::size_t changed_effect_count(const Draft &draft) {
 }
 
 DraftReview review_drafts(const Drafts &drafts, const EquippedRelics *equipped,
-                          const RelicValidator &validator, const RuleContext &context) {
+                          const RelicValidator &validator, const RuleContext &context,
+                          bool invalid) {
     DraftReview review;
     for (std::size_t i = 0; i < drafts.size(); ++i) {
         if (!drafts[i] || drafts[i]->effects == drafts[i]->original.effects)
@@ -26,15 +27,19 @@ DraftReview review_drafts(const Drafts &drafts, const EquippedRelics *equipped,
                      relic_lock_reason(validator.items().find(draft.original.item_id)))
             rejection = EditRejected{EditRejectReason::Locked, reason};
         else {
-            const auto validation =
-                validator.validate(draft.original.item_id, draft.effects, context);
-            if (const auto *valid = std::get_if<Obtainable>(&validation))
-                review.changes[i] = Draft{draft.original, valid->effects};
-            else
-                rejection = EditRejected{std::holds_alternative<UnknownRules>(validation)
-                                             ? EditRejectReason::RulesUnavailable
-                                             : EditRejectReason::Invalid,
-                                         validation_reason(validation)};
+            if (invalid)
+                review.changes[i] = Draft{draft.original, draft.effects};
+            else {
+                const auto validation =
+                    validator.validate(draft.original.item_id, draft.effects, context);
+                if (const auto *valid = std::get_if<Obtainable>(&validation))
+                    review.changes[i] = Draft{draft.original, valid->effects};
+                else
+                    rejection = EditRejected{std::holds_alternative<UnknownRules>(validation)
+                                                 ? EditRejectReason::RulesUnavailable
+                                                 : EditRejectReason::Invalid,
+                                             validation_reason(validation)};
+            }
         }
         if (rejection && !review.blocked)
             review.blocked = SlotRejection{i, std::move(*rejection)};

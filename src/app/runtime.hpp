@@ -52,7 +52,7 @@ class Runtime {
     bool editing_supported() const;
     const char *editing_lock_reason() const;
     EditLocation edit_location() const { return location_; }
-    DraftApplyResult apply_drafts();
+    DraftApplyResult apply_drafts(bool invalid = false);
     UndoResult undo();
     bool can_undo() const { return undo_.has_value(); }
 
@@ -68,7 +68,7 @@ class Runtime {
     bool needs_rule_binding() const;
     void lock_rules_if_readable();
     EditResult write_change(const RelicOwner &owner, std::size_t slot, const Relic &expected,
-                            Effects replacement);
+                            Effects replacement, bool invalid = false);
     struct UndoChange {
         std::size_t slot;
         Relic before;
@@ -77,6 +77,7 @@ class Runtime {
     struct Undo {
         RelicOwner owner;
         std::vector<UndoChange> changes;
+        bool invalid = false;
     };
     std::optional<Undo> undo_;
     RuntimeEnvironment environment_;

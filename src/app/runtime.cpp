@@ -226,7 +226,7 @@ void Runtime::prepare_assets() {
         log("Asset warning: " + warning);
 }
 
-DraftApplyResult Runtime::apply_drafts() {
+DraftApplyResult Runtime::apply_drafts(bool invalid) {
     const auto session = session_;
     const auto owner = owner_;
     const auto drafts = editor_.drafts();
@@ -248,17 +248,19 @@ DraftApplyResult Runtime::apply_drafts() {
     std::vector<UndoChange> changes;
     auto result = editor_.apply(
         equipped, validator(), rule_context_,
-        [this, owner, &changes](auto slot, const auto &before, auto effects) -> EditResult {
+        [this, owner, invalid, &changes](auto slot, const auto &before,
+                                         auto effects) -> EditResult {
             if (!owner)
                 return EditRejected{EditRejectReason::Unreadable, {}};
-            auto written = write_change(*owner, slot, before, effects);
+            auto written = write_change(*owner, slot, before, effects, invalid);
             if (const auto *after = std::get_if<Relic>(&written))
                 changes.push_back(UndoChange{slot, before, *after});
             return written;
-        });
+        },
+        invalid);
     refresh_memory();
     if (!changes.empty() && session_ == session && owner_ == owner)
-        undo_ = Undo{*owner, std::move(changes)};
+        undo_ = Undo{*owner, std::move(changes), invalid};
     return result;
 }
 
@@ -268,7 +270,8 @@ UndoResult Runtime::undo() {
     const auto previous = *undo_;
     UndoResult result;
     for (auto it = previous.changes.rbegin(); it != previous.changes.rend(); ++it) {
-        const auto written = write_change(previous.owner, it->slot, it->after, it->before.effects);
+        const auto written =
+            write_change(previous.owner, it->slot, it->after, it->before.effects, previous.invalid);
         if (std::holds_alternative<Relic>(written)) {
             ++result.restored;
             if (undo_)
@@ -287,7 +290,7 @@ UndoResult Runtime::undo() {
 }
 
 EditResult Runtime::write_change(const RelicOwner &owner, std::size_t slot, const Relic &expected,
-                                 Effects replacement) {
+                                 Effects replacement, bool invalid) {
     update_native_edit_error();
     if (native_edit_error_)
         return EditRejected{EditRejectReason::EquipUnavailable, *native_edit_error_};
@@ -315,14 +318,16 @@ EditResult Runtime::write_change(const RelicOwner &owner, std::size_t slot, cons
         return EditRejected{EditRejectReason::NotAtRoundtable, {}};
     if (const auto *reason = relic_lock_reason(items().find(expected.item_id)))
         return EditRejected{EditRejectReason::Locked, reason};
-    const auto validation = validate(expected.item_id, replacement);
-    const auto *valid = std::get_if<Obtainable>(&validation);
-    if (!valid)
-        return EditRejected{std::holds_alternative<UnknownRules>(validation)
-                                ? EditRejectReason::RulesUnavailable
-                                : EditRejectReason::Invalid,
-                            validation_reason(validation)};
-    replacement = valid->effects;
+    if (!invalid) {
+        const auto validation = validate(expected.item_id, replacement);
+        const auto *valid = std::get_if<Obtainable>(&validation);
+        if (!valid)
+            return EditRejected{std::holds_alternative<UnknownRules>(validation)
+                                    ? EditRejectReason::RulesUnavailable
+                                    : EditRejectReason::Invalid,
+                                validation_reason(validation)};
+        replacement = valid->effects;
+    }
     if (replacement == expected.effects)
         return EditRejected{EditRejectReason::Unchanged, {}};
     if (const auto error = record_edit(journal_path_, slot, expected, replacement))
@@ -332,9 +337,11 @@ EditResult Runtime::write_change(const RelicOwner &owner, std::size_t slot, cons
     const auto result =
         environment_.commit
             ? environment_.commit(RelicEditRequest{*roots_, equipped_offset(), owner, slot,
-                                                   expected, replacement, rules(), rule_context_})
+                                                   expected, replacement, rules(), rule_context_,
+                                                   invalid})
             : replace_equipped(environment_.read, environment_.write, *roots_, equipped_offset(),
-                               owner, slot, expected, replacement, validator(), rule_context_);
+                               owner, slot, expected, replacement, validator(), rule_context_, {},
+                               invalid);
     if (std::holds_alternative<Relic>(result)) {
         log("Updated relic slot " + std::to_string(slot + 1) + ", inventory index " +
             std::to_string(expected.inventory_index()));

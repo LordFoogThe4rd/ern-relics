@@ -89,6 +89,13 @@ void preparation() {
     inputs.position = {0, ern::EffectField::Curse};
     require(ern::ui::prepare_effect_choices(inputs).can_clear,
             "An optional curse could not be cleared");
+    inputs = fixture();
+    inputs.position = {0, ern::EffectField::Curse};
+    inputs.invalid = true;
+    const auto invalid = ern::ui::prepare_effect_choices(inputs);
+    require(invalid.curses && invalid.can_clear && available(choice(invalid, 900001)) &&
+                available(choice(invalid, 8100000)) && choice(invalid, 900001).tag.empty(),
+            "Invalid mode did not expose every effect and curse in any field");
 }
 
 void caching() {
@@ -148,6 +155,11 @@ void caching() {
                 cache.get(changed) == next,
             "Unknown-rule reasons did not invalidate by value or an equal value "
             "missed the cache");
+    previous = next;
+    changed.invalid = true;
+    next = cache.get(changed);
+    require(next != previous && available(choice(*next, 8100000)),
+            "Invalid mode did not invalidate the cached choice model");
 
     std::weak_ptr<const ern::RelicValidator> retained_rules;
     std::weak_ptr<const ern::GameAssets> retained_assets;

@@ -26,6 +26,7 @@ struct DiscardDrafts {
 };
 struct ApplyDrafts {
     static constexpr auto freshness = ActionFreshness::Drafts;
+    bool invalid = false;
 };
 struct UndoEdit {
     static constexpr auto freshness = ActionFreshness::Equipped;

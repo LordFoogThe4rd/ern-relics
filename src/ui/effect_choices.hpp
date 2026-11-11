@@ -28,6 +28,7 @@ struct EffectChoiceInputs {
     Effects effects;
     EffectPosition position;
     RuleContext context;
+    bool invalid = false;
     bool operator==(const EffectChoiceInputs &other) const;
 };
 

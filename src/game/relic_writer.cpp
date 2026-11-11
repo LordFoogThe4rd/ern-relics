@@ -7,7 +7,7 @@ EditResult replace_equipped(const MemoryRead &read, const MemoryWrite &write, Re
                             std::uint32_t equipped_offset, const RelicOwner &owner,
                             std::size_t slot, const Relic &expected, const Effects &replacement,
                             const RelicValidator &validator, const RuleContext &context,
-                            const RelicEquipment &equip) {
+                            const RelicEquipment &equip, bool invalid) {
     if (slot >= relic_slot_count)
         return EditRejected{EditRejectReason::Stale, {}};
     if (read_edit_location(read, roots) != EditLocation::RoundtableHold)
@@ -23,11 +23,14 @@ EditResult replace_equipped(const MemoryRead &read, const MemoryWrite &write, Re
         return EditRejected{EditRejectReason::Stale, {}};
     if (relic_lock_reason(validator.items().find(current->slots[slot]->item_id)))
         return EditRejected{EditRejectReason::Locked, {}};
-    const auto validation = validator.validate(expected.item_id, replacement, context);
-    const auto *valid = std::get_if<Obtainable>(&validation);
-    if (!valid)
-        return EditRejected{EditRejectReason::Invalid, {}};
-    const auto &ordered = valid->effects;
+    Effects ordered = replacement;
+    if (!invalid) {
+        const auto validation = validator.validate(expected.item_id, replacement, context);
+        const auto *valid = std::get_if<Obtainable>(&validation);
+        if (!valid)
+            return EditRejected{EditRejectReason::Invalid, {}};
+        ordered = valid->effects;
+    }
     const auto record = read_value<Address>(
         read, owner.items + game_layout::inventory_entries +
                   static_cast<Address>(expected.inventory_index()) * game_layout::inventory_stride);
@@ -53,7 +56,8 @@ EditResult replace_equipped(const MemoryRead &read, const MemoryWrite &write, Re
         return EditRejected{EditRejectReason::NotAtRoundtable, {}};
     if (!relic_owner_matches(read, roots, owner))
         return EditRejected{EditRejectReason::Stale, {}};
-    const bool deep = validator.items().find(expected.item_id)->family == RelicFamily::Deep;
+    const bool write_curses =
+        invalid || validator.items().find(expected.item_id)->family == RelicFamily::Deep;
     const auto put_effects = [&](const Effects &effects, bool restoring) {
         const auto fields = encode_effects(effects);
         const bool positive =
@@ -62,7 +66,7 @@ EditResult replace_equipped(const MemoryRead &read, const MemoryWrite &write, Re
             return false;
         // Restoration tries both ranges, including after a failed positive write.
         const bool curses =
-            !deep ||
+            !write_curses ||
             write(curses_address, std::as_bytes(std::span(fields).subspan(effects_per_relic)));
         return positive && curses;
     };

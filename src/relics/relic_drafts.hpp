@@ -22,7 +22,8 @@ struct DraftReview {
 };
 
 DraftReview review_drafts(const Drafts &drafts, const EquippedRelics *equipped,
-                          const RelicValidator &validator, const RuleContext &context);
+                          const RelicValidator &validator, const RuleContext &context,
+                          bool invalid = false);
 
 struct DraftApplyResult {
     std::size_t applied = 0;

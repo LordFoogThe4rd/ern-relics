@@ -21,6 +21,7 @@ struct RelicEditRequest {
     Effects replacement;
     std::shared_ptr<const RelicValidator> rules;
     RuleContext context;
+    bool invalid = false;
 };
 using RelicCommit = std::function<EditResult(RelicEditRequest)>;
 
@@ -29,5 +30,5 @@ EditResult replace_equipped(const MemoryRead &read, const MemoryWrite &write, Re
                             std::uint32_t equipped_offset, const RelicOwner &owner,
                             std::size_t slot, const Relic &expected, const Effects &replacement,
                             const RelicValidator &validator, const RuleContext &context,
-                            const RelicEquipment &equip = {});
+                            const RelicEquipment &equip = {}, bool invalid = false);
 } // namespace ern

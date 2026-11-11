@@ -36,6 +36,15 @@ int main() {
         const auto review = ern::review_drafts(drafts, &batch_live, validator, context);
         require(!review.blocked && review.relic_count == 3 && review.effect_count == 4,
                 "Batch review omitted pending relics or effects");
+        auto invalid_drafts = make_drafts();
+        invalid_drafts[0]->effects.rows[0].effect = 10000;
+        require(ern::review_drafts(invalid_drafts, &batch_live, validator, context).blocked,
+                "An invalid draft was not blocked in normal mode");
+        const auto forced =
+            ern::review_drafts(invalid_drafts, &batch_live, validator, context, true);
+        require(!forced.blocked && forced.changes[0] &&
+                    forced.changes[0]->effects == invalid_drafts[0]->effects,
+                "Invalid mode did not stage every draft without validation");
         const auto batch_write = [&](std::size_t slot, const ern::Relic &before,
                                      ern::Effects after) {
             const auto result = ern::replace_equipped(

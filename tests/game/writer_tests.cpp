@@ -267,5 +267,33 @@ int main() {
                                   0, *live.slots[0], edited, missing_items, context);
         require(std::get<ern::EditRejected>(write_result).reason == ern::EditRejectReason::Locked,
                 "Missing item metadata did not lock writes");
+        {
+            Fixture forced;
+            const auto forced_owner = std::get<ern::RelicSnapshot>(
+                                          ern::read_equipped(forced.reader(), forced.roots, 0x2F4))
+                                          .owner;
+            const auto forced_before =
+                *std::get<ern::RelicSnapshot>(
+                     ern::read_equipped(forced.reader(), forced.roots, 0x2F4))
+                     .relics.slots[0];
+            const ern::Effects forced_effects{
+                {10000, 900001}, {7000602, UINT32_MAX}, {7001802, UINT32_MAX}};
+            const auto forced_result = ern::replace_equipped(
+                forced.reader(),
+                [&](ern::Address address, std::span<const std::byte> bytes) {
+                    std::memcpy(forced.bytes.data() + address - Fixture::base, bytes.data(),
+                                bytes.size());
+                    return true;
+                },
+                forced.roots, 0x2F4, forced_owner, 0, forced_before, forced_effects, validator,
+                context, {}, true);
+            require(std::holds_alternative<ern::Relic>(forced_result) &&
+                        std::get<ern::Relic>(forced_result).effects == forced_effects &&
+                        std::get<ern::RelicSnapshot>(
+                            ern::read_equipped(forced.reader(), forced.roots, 0x2F4))
+                                .relics.slots[0]
+                                ->effects == forced_effects,
+                    "Invalid mode did not write an unreachable effect and curse");
+        }
     });
 }
