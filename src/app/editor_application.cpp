@@ -155,8 +155,8 @@ EditorOutcome EditorApplication::handle(const DiscardDrafts &) {
         runtime_.editor().sync(*current);
     return {};
 }
-EditorOutcome EditorApplication::handle(const ApplyDrafts &) {
-    return AppliedDrafts{runtime_.apply_drafts()};
+EditorOutcome EditorApplication::handle(const ApplyDrafts &action) {
+    return AppliedDrafts{runtime_.apply_drafts(action.invalid)};
 }
 EditorOutcome EditorApplication::handle(const UndoEdit &) { return UndoneEdit{runtime_.undo()}; }
 void EditorApplication::reload_presets() {

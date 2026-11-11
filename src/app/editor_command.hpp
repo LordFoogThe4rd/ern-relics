@@ -15,7 +15,9 @@ struct ReloadSlot {
     std::size_t slot;
 };
 struct DiscardDrafts {};
-struct ApplyDrafts {};
+struct ApplyDrafts {
+    bool invalid = false;
+};
 struct UndoEdit {};
 struct ReloadPresets {};
 struct SavePreset {

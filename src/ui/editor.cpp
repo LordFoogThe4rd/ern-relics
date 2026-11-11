@@ -125,7 +125,8 @@ void relic_tiles(const EditorView &rt, EditorState &state, const Appearance &app
                 rt.presentation().describe(tile.effects->rows[effect].effect);
             tile.rows[effect].effect_height = appearance.space(5);
             tile_height += tile.rows[effect].effect_height;
-            if (i >= effects_per_relic) {
+            if (i >= effects_per_relic ||
+                (state.invalid && tile.effects->rows[effect].curse != UINT32_MAX)) {
                 const auto id = tile.effects->rows[effect].curse;
                 tile.rows[effect].curse_label =
                     id == UINT32_MAX ? "No curse" : rt.presentation().describe(id);
@@ -298,7 +299,7 @@ void effect_field(const EditorView &rt, EditorState &state, const Appearance &ap
     const auto count = item ? std::count_if(item->effect_tables.begin(), item->effect_tables.end(),
                                             [](auto table) { return table != -1; })
                             : 0;
-    ImGui::BeginDisabled(index.row >= static_cast<std::size_t>(count));
+    ImGui::BeginDisabled(!state.invalid && index.row >= static_cast<std::size_t>(count));
     const auto describe = [&](auto id) {
         return index.field == EffectField::Curse && id == UINT32_MAX
                    ? std::string("No curse")
@@ -355,12 +356,19 @@ void effect_browser(const EditorView &rt, std::optional<EditorAction> &action, E
     ImGui::BeginChild("effect-browser",
                       {0, std::max(appearance.space(52), ImGui::GetContentRegionAvail().y)},
                       ImGuiChildFlags_Borders);
-    const float toggle_width =
-        deep ? ImGui::CalcTextSize("No curse").x + ImGui::GetStyle().FramePadding.x * 2
-             : ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x +
-                   ImGui::CalcTextSize("Show unavailable choices").x;
-    ImGui::SetNextItemWidth(std::max(appearance.space(25), ImGui::GetContentRegionAvail().x -
-                                                               toggle_width - appearance.space(2)));
+    const float clear_width =
+        deep || (state.invalid && curses)
+            ? ImGui::CalcTextSize("No curse").x + ImGui::GetStyle().FramePadding.x * 2
+            : 0.f;
+    const float unavailable_width = deep ? 0.f
+                                         : ImGui::GetFrameHeight() +
+                                               ImGui::GetStyle().ItemInnerSpacing.x +
+                                               ImGui::CalcTextSize("Show unavailable choices").x;
+    const float invalid_width = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x +
+                                ImGui::CalcTextSize("Allow invalid relics").x;
+    ImGui::SetNextItemWidth(std::max(appearance.space(25),
+                                     ImGui::GetContentRegionAvail().x - clear_width -
+                                         unavailable_width - invalid_width - appearance.space(4)));
     if (ImGui::InputTextWithHint("##search", curses ? "Search curses..." : "Search effects...",
                                  state.effect_filter.InputBuf,
                                  sizeof(state.effect_filter.InputBuf)))
@@ -369,15 +377,18 @@ void effect_browser(const EditorView &rt, std::optional<EditorAction> &action, E
         ImGui::SameLine(0, appearance.space(2));
         checkbox("Show unavailable choices", &state.show_unavailable);
     }
-    if (deep) {
+    if (deep || (state.invalid && curses)) {
         ImGui::SameLine(0, appearance.space(2));
         ImGui::BeginDisabled(!choices->can_clear || effect_at(draft.effects, index) == UINT32_MAX);
-        if (button("No curse", {toggle_width, 0})) {
+        if (button("No curse", {clear_width, 0})) {
             action = SetEffect{state.selected, index, UINT32_MAX};
             state.status = {};
         }
         ImGui::EndDisabled();
     }
+    ImGui::SameLine(0, appearance.space(2));
+    if (checkbox("Allow invalid relics", &state.invalid))
+        state.status = {};
     vertical_gap(appearance.space(2));
     const float results_height = std::floor(ImGui::GetContentRegionAvail().y);
     const float groups_width =
@@ -509,17 +520,18 @@ bool detail(const EditorView &rt, std::optional<EditorAction> &action, EditorSta
     } else {
         ImGui::BeginDisabled(stale);
         const bool deep = info->family == RelicFamily::Deep;
+        const bool curses = deep || state.invalid;
         ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, {appearance.space(1), appearance.space(1)});
-        if (ImGui::BeginTable("effect-fields", deep ? 2 : 1,
+        if (ImGui::BeginTable("effect-fields", curses ? 2 : 1,
                               ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings |
                                   ImGuiTableFlags_NoPadOuterX)) {
             ImGui::TableSetupColumn("Effect", ImGuiTableColumnFlags_WidthStretch, 2.f);
-            if (deep)
+            if (curses)
                 ImGui::TableSetupColumn("Curse", ImGuiTableColumnFlags_WidthStretch, 1.f);
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::TextColored(muted, "Effects");
-            if (deep) {
+            if (curses) {
                 ImGui::TableSetColumnIndex(1);
                 ImGui::TextColored(muted, "Paired curses");
             }
@@ -527,7 +539,7 @@ bool detail(const EditorView &rt, std::optional<EditorAction> &action, EditorSta
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 effect_field(rt, state, appearance, {i, EffectField::Effect}, draft);
-                if (deep) {
+                if (curses) {
                     ImGui::TableSetColumnIndex(1);
                     effect_field(rt, state, appearance, {i, EffectField::Curse}, draft);
                 }
@@ -587,7 +599,7 @@ void draft_footer(const EditorView &rt, std::optional<EditorAction> &action, Edi
             rt.drafts[state.selected]
                 ? effect_at(rt.drafts[state.selected]->effects, state.selected_effect)
                 : UINT32_MAX;
-        action = ApplyDrafts{};
+        action = ApplyDrafts{state.invalid};
     }
     ImGui::EndDisabled();
     Notice warning;
@@ -619,7 +631,7 @@ void draw_editor(const EditorView &rt, std::optional<EditorAction> &action, Edit
                  const Appearance &appearance, const EquippedRelics *equipped, UiRect editor) {
     const auto review = rt.review;
     DraftFeedback feedback;
-    if (review.blocked) {
+    if (review.blocked && !state.invalid) {
         const auto slot = review.blocked->slot;
         feedback.error = slot_failure_message({slot, review.blocked->rejection});
         feedback.reload = equipped && (!equipped->slots[slot] ||

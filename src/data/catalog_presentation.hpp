@@ -20,7 +20,8 @@ class CatalogPresentation {
     std::optional<unsigned int> item_cell(const RelicInfo *item) const;
     std::optional<unsigned int> empty_relic_cell(bool deep) const;
     std::optional<unsigned int> effect_cell(std::uint32_t id) const;
-    std::vector<PresentedEffect> candidates(std::uint32_t item_id, bool curses = false) const;
+    std::vector<PresentedEffect> candidates(std::uint32_t item_id, bool curses = false,
+                                            bool all = false) const;
 
   private:
     std::optional<unsigned int> cell(IconKey key) const;

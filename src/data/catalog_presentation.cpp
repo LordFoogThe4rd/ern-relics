@@ -60,11 +60,16 @@ std::optional<unsigned int> CatalogPresentation::effect_cell(std::uint32_t id) c
                : std::nullopt;
 }
 
-std::vector<PresentedEffect> CatalogPresentation::candidates(std::uint32_t item_id,
-                                                             bool curses) const {
+std::vector<PresentedEffect> CatalogPresentation::candidates(std::uint32_t item_id, bool curses,
+                                                             bool all) const {
     std::vector<PresentedEffect> result;
-    for (const auto *effect : rules_.candidates(item_id, curses))
-        result.push_back({effect, describe(effect->id)});
+    if (all) {
+        for (const auto &[id, effect] : rules_.effects().entries())
+            result.push_back({&effect, describe(id)});
+    } else {
+        for (const auto *effect : rules_.candidates(item_id, curses))
+            result.push_back({effect, describe(effect->id)});
+    }
     std::sort(result.begin(), result.end(), [](const auto &left, const auto &right) {
         return left.description == right.description ? left.effect->id < right.effect->id
                                                      : left.description < right.description;

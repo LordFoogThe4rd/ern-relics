@@ -287,9 +287,10 @@ EditResult replace_equipped_native(const MemoryRead &read, const MemoryWrite &wr
             return reject(*failure, RelicEquipResult::Failed);
         return RelicEquipResult::Complete;
     };
-    auto result = replace_equipped(read, write, request.roots, request.equipped_offset,
-                                   request.owner, request.slot, request.expected,
-                                   request.replacement, *request.rules, request.context, cycle);
+    auto result =
+        replace_equipped(read, write, request.roots, request.equipped_offset, request.owner,
+                         request.slot, request.expected, request.replacement, *request.rules,
+                         request.context, cycle, request.invalid);
     if (auto *rejected = std::get_if<EditRejected>(&result); rejected && capacity_error)
         rejected->detail = std::move(*capacity_error);
     return result;

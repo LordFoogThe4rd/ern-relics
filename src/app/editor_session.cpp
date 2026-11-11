@@ -28,13 +28,14 @@ void EditorSession::discard() {
 }
 
 DraftReview EditorSession::review(const EquippedRelics *equipped, const RelicValidator &rules,
-                                  const RuleContext &context) const {
-    return review_drafts(drafts_, equipped, rules, context);
+                                  const RuleContext &context, bool invalid) const {
+    return review_drafts(drafts_, equipped, rules, context, invalid);
 }
 
 DraftApplyResult EditorSession::apply(const EquippedRelics *equipped, const RelicValidator &rules,
-                                      const RuleContext &context, const DraftWriter &write) {
-    return apply_drafts(drafts_, review(equipped, rules, context), write);
+                                      const RuleContext &context, const DraftWriter &write,
+                                      bool invalid) {
+    return apply_drafts(drafts_, review(equipped, rules, context, invalid), write);
 }
 
 PresetStage EditorSession::load_preset(const Preset &preset, const EquippedRelics &equipped,

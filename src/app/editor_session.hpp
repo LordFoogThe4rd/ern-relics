@@ -12,9 +12,10 @@ class EditorSession {
     void set_effect(std::size_t slot, EffectPosition effect, std::uint32_t id);
     void discard();
     DraftReview review(const EquippedRelics *equipped, const RelicValidator &rules,
-                       const RuleContext &context) const;
+                       const RuleContext &context, bool invalid = false) const;
     DraftApplyResult apply(const EquippedRelics *equipped, const RelicValidator &rules,
-                           const RuleContext &context, const DraftWriter &write);
+                           const RuleContext &context, const DraftWriter &write,
+                           bool invalid = false);
     PresetStage load_preset(const Preset &preset, const EquippedRelics &equipped,
                             const RelicValidator &rules, const RuleContext &context);
 

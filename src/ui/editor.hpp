@@ -15,6 +15,7 @@ struct EditorState {
     Notice status;
     ImGuiTextFilter effect_filter;
     bool show_unavailable = false;
+    bool invalid = false;
     std::optional<EffectGroup> group_filter;
     std::optional<std::uint32_t> applied_focus;
     EffectChoiceCache choice_cache;
