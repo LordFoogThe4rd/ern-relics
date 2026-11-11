@@ -84,6 +84,13 @@ jobs:
         run: |
           ./tools/setup/shell.ps1
           uv run --no-sync python -m tools.check --jobs 4 --build-directory "$env:RUNNER_TEMP/build"
+      - name: Upload development package
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ern-relics-dev
+          path: dist/ern-relics-*-dev
+          if-no-files-found: error
 
   asan:
     name: AddressSanitizer checks
