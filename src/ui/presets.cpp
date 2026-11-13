@@ -122,7 +122,7 @@ void delete_dialog(std::optional<EditorAction> &action, PresetBrowser &browser,
 }
 
 void replace_dialog(std::optional<EditorAction> &action, PresetBrowser &browser,
-                    const Appearance &appearance, UiRect editor, bool can_save) {
+                    const Appearance &appearance, UiRect editor, bool can_save, bool invalid) {
     const float width = std::min(appearance.space(105), editor.width - appearance.space(10));
     ImGui::SetNextWindowPos({editor.x + editor.width / 2, editor.y + editor.height / 2},
                             ImGuiCond_Always, {.5f, .5f});
@@ -149,7 +149,7 @@ void replace_dialog(std::optional<EditorAction> &action, PresetBrowser &browser,
         ImGui::SameLine(0, appearance.space(2));
         ImGui::BeginDisabled(!can_save);
         if (danger_button("Replace preset", {button_width, appearance.space(9)})) {
-            action = SavePreset{browser.pending_replace, PresetSaveMode::Replace};
+            action = SavePreset{browser.pending_replace, PresetSaveMode::Replace, invalid};
             browser.pending_replace.clear();
             ImGui::CloseCurrentPopup();
         }
@@ -162,7 +162,8 @@ void replace_dialog(std::optional<EditorAction> &action, PresetBrowser &browser,
 } // namespace
 
 void draw_presets(const EditorView &rt, std::optional<EditorAction> &action, PresetBrowser &browser,
-                  const Appearance &appearance, const EquippedRelics *equipped, UiRect editor) {
+                  const Appearance &appearance, const EquippedRelics *equipped, UiRect editor,
+                  bool invalid) {
     const auto &style = ImGui::GetStyle();
     const float footer_y =
         ImGui::GetCursorPosY() + ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeight();
@@ -336,10 +337,10 @@ void draw_presets(const EditorView &rt, std::optional<EditorAction> &action, Pre
             browser.pending_replace = existing->name;
             ImGui::OpenPopup("Replace preset?");
         } else
-            action = SavePreset{browser.name};
+            action = SavePreset{browser.name, PresetSaveMode::Create, invalid};
     }
     ImGui::EndDisabled();
-    replace_dialog(action, browser, appearance, editor, can_save);
+    replace_dialog(action, browser, appearance, editor, can_save, invalid);
     if (const auto *reason = rt.editing_lock_reason()) {
         auto locked = read_only_notice(reason);
         notification(locked, appearance, {footer.x, footer.y, footer_width, 0});

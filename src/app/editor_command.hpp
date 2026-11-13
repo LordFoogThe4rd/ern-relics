@@ -23,6 +23,7 @@ struct ReloadPresets {};
 struct SavePreset {
     std::string name;
     PresetSaveMode mode = PresetSaveMode::Create;
+    bool invalid = false;
 };
 struct DeletePreset {
     std::string name;

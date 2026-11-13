@@ -194,7 +194,7 @@ void EditorUi::draw(const EditorView &rt, bool pending, std::optional<EditorActi
     ImGui::BeginChild("page-content", {0, 0});
     ImGui::BeginDisabled(pending);
     if (page_ == Page::Presets)
-        ui::draw_presets(rt, action, browser_, appearance_, equipped, editor);
+        ui::draw_presets(rt, action, browser_, appearance_, equipped, editor, state_.invalid);
     else
         ui::draw_editor(rt, action, state_, appearance_, equipped, editor);
     ImGui::EndDisabled();

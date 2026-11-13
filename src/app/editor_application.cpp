@@ -177,7 +177,8 @@ EditorOutcome EditorApplication::handle(const SavePreset &action) {
     if (!equipped() || !runtime_.editing_supported())
         return EditRejected{EditRejectReason::Unreadable,
                             "Equipped relics are unavailable for saving."};
-    const auto preset = capture_preset(*equipped(), runtime_.validator(), runtime_.rule_context());
+    const auto preset =
+        capture_preset(*equipped(), runtime_.validator(), runtime_.rule_context(), action.invalid);
     const auto count =
         static_cast<std::size_t>(std::count_if(preset.slots.begin(), preset.slots.end(),
                                                [](const auto &slot) { return slot.has_value(); }));

@@ -331,7 +331,7 @@ void preset_padding(float height) {
             frame.begin();
             ern::ui::draw_presets(view, action, browser, frame.appearance,
                                   &std::get<ern::EquippedRelics>(view.inspection),
-                                  ern::editor_bounds(ImGui::GetIO().DisplaySize.x, height));
+                                  ern::editor_bounds(ImGui::GetIO().DisplaySize.x, height), false);
             Frame::end();
         }
     };
@@ -404,7 +404,7 @@ void preset_replacement(float height) {
             frame.begin();
             ern::ui::draw_presets(view, action, browser, frame.appearance,
                                   &std::get<ern::EquippedRelics>(view.inspection),
-                                  ern::editor_bounds(ImGui::GetIO().DisplaySize.x, height));
+                                  ern::editor_bounds(ImGui::GetIO().DisplaySize.x, height), false);
             Frame::end();
         }
     };
@@ -749,7 +749,7 @@ void icon_alignment(float height, bool deep, bool wrapped) {
         frame.begin();
         ern::ui::draw_presets(view, action, browser, frame.appearance,
                               &std::get<ern::EquippedRelics>(view.inspection),
-                              ern::editor_bounds(ImGui::GetIO().DisplaySize.x, height));
+                              ern::editor_bounds(ImGui::GetIO().DisplaySize.x, height), false);
         Frame::end();
     }
     require(check_icon_alignment(view.assets()) >= 3, "Too few preset icon rows were checked");

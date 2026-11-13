@@ -16,5 +16,6 @@ struct PresetBrowser {
 };
 
 void draw_presets(const EditorView &rt, std::optional<EditorAction> &action, PresetBrowser &browser,
-                  const Appearance &appearance, const EquippedRelics *equipped, UiRect editor);
+                  const Appearance &appearance, const EquippedRelics *equipped, UiRect editor,
+                  bool invalid);
 } // namespace ern::ui
