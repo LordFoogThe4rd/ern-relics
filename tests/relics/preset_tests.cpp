@@ -46,13 +46,13 @@ int main() {
             ern::stage_preset(invalid_templates, template_live, validator, context);
         require(!rejected_template.drafts.slots[0],
                 "Boss-only effects were staged on a normal relic");
-        const ern::Preset forced_templates{{std::nullopt, boss_effects, std::nullopt}};
+        const ern::Preset forced_templates{{boss_effects, boss_effects, std::nullopt}};
         const auto forced_stage =
-            ern::stage_preset(forced_templates, template_live, validator, context, true);
+            ern::stage_preset(forced_templates, live, validator, context, true);
         require(forced_stage.drafts.slots[1] && *forced_stage.drafts.slots[1] == boss_effects &&
                     !forced_stage.drafts.slots[0],
                 "Invalid preset mode dropped an invalid slot or staged a locked relic");
-        auto forced_live = template_live;
+        auto forced_live = live;
         forced_live.slots[1]->effects = boss_effects;
         const auto forced_capture = ern::capture_preset(forced_live, validator, context, true);
         require(forced_capture.slots[1] && *forced_capture.slots[1] == boss_effects &&
