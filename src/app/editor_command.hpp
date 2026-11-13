@@ -30,6 +30,7 @@ struct DeletePreset {
 };
 struct LoadPreset {
     Preset preset;
+    bool invalid = false;
 };
 using EditorAction =
     std::variant<RefreshInspection, SetEffect, ReloadSlot, DiscardDrafts, ApplyDrafts, UndoEdit,

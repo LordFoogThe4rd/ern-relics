@@ -44,6 +44,15 @@ int main() {
         test::require(session.review(&live, rules, context).relic_count == 0,
                       "Discard left pending changes");
         session.load_preset(preset, live, rules, context);
+        const ern::Preset invalid_preset{
+            {std::nullopt,
+             ern::Effects{{10000, UINT32_MAX}, {7000602, UINT32_MAX}, {7001802, UINT32_MAX}},
+             std::nullopt}};
+        const auto forced = session.load_preset(invalid_preset, live, rules, context, true);
+        test::require(forced.drafts.slots[1] &&
+                          session.drafts()[1]->effects == *invalid_preset.slots[1],
+                      "Invalid load did not stage unreachable effects");
+        session.load_preset(preset, live, rules, context);
         const auto write = [&](std::size_t slot, const ern::Relic &expected, ern::Effects effects) {
             return ern::replace_equipped(
                 fixture.reader(),

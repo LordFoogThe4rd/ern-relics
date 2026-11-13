@@ -253,7 +253,7 @@ void draw_presets(const EditorView &rt, std::optional<EditorAction> &action, Pre
         const auto preset = entry->contents;
         std::optional<PresetStage> staged;
         if (preset && equipped)
-            staged = stage_preset(*preset, *equipped, rt.validator(), rt.context);
+            staged = stage_preset(*preset, *equipped, rt.validator(), rt.context, invalid);
         const auto count =
             staged ? std::count_if(staged->drafts.slots.begin(), staged->drafts.slots.end(),
                                    [](const auto &value) { return value.has_value(); })
@@ -272,7 +272,7 @@ void draw_presets(const EditorView &rt, std::optional<EditorAction> &action, Pre
         ImGui::SameLine();
         ImGui::BeginDisabled(!rt.editing_supported() || !count);
         if (primary_button("Load into drafts", {appearance.space(33), 0}))
-            action = LoadPreset{*preset};
+            action = LoadPreset{*preset, invalid};
         ImGui::EndDisabled();
         ImGui::TextColored(muted, "%zu slots ready to load", static_cast<std::size_t>(count));
         ImGui::BeginChild("preset-slot-previews", {0, 0});
