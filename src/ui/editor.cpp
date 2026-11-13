@@ -348,8 +348,8 @@ void effect_field(const EditorView &rt, EditorState &state, const Appearance &ap
 void effect_browser(const EditorView &rt, std::optional<EditorAction> &action, EditorState &state,
                     const Appearance &appearance, const Draft &draft) {
     const auto index = state.selected_effect;
-    const auto choices = state.choice_cache.get(
-        {rt.rules, rt.resources, draft.original.item_id, draft.effects, index, rt.context});
+    const auto choices = state.choice_cache.get({rt.rules, rt.resources, draft.original.item_id,
+                                                 draft.effects, index, rt.context, state.invalid});
     const bool curses = choices->curses;
     const bool deep = choices->deep;
     vertical_gap(appearance.space(2));
