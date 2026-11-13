@@ -46,6 +46,18 @@ int main() {
             ern::stage_preset(invalid_templates, template_live, validator, context);
         require(!rejected_template.drafts.slots[0],
                 "Boss-only effects were staged on a normal relic");
+        const ern::Preset forced_templates{{std::nullopt, boss_effects, std::nullopt}};
+        const auto forced_stage =
+            ern::stage_preset(forced_templates, template_live, validator, context, true);
+        require(forced_stage.drafts.slots[1] && *forced_stage.drafts.slots[1] == boss_effects &&
+                    !forced_stage.drafts.slots[0],
+                "Invalid preset mode dropped an invalid slot or staged a locked relic");
+        auto forced_live = template_live;
+        forced_live.slots[1]->effects = boss_effects;
+        const auto forced_capture = ern::capture_preset(forced_live, validator, context, true);
+        require(forced_capture.slots[1] && *forced_capture.slots[1] == boss_effects &&
+                    !forced_capture.slots[0],
+                "Invalid preset capture kept a locked relic or dropped invalid effects");
         const auto unknown_stage = ern::stage_preset(lock_test, live, validator,
                                                      ern::UnknownRules{"Mismatched regulation"});
         require(!unknown_stage.drafts.slots[0] && !unknown_stage.drafts.slots[1] &&

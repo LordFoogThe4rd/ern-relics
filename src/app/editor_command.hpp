@@ -38,6 +38,7 @@ struct SavePreset {
     static constexpr auto freshness = ActionFreshness::Equipped;
     std::string name;
     PresetSaveMode mode = PresetSaveMode::Create;
+    bool invalid = false;
 };
 struct DeletePreset {
     static constexpr auto freshness = ActionFreshness::Independent;

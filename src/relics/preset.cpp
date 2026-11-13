@@ -5,7 +5,8 @@
 
 namespace ern {
 PresetStage stage_preset(const Preset &preset, const EquippedRelics &equipped,
-                         const RelicValidator &validator, const RuleContext &context) {
+                         const RelicValidator &validator, const RuleContext &context,
+                         bool invalid) {
     PresetStage result{};
     for (std::size_t i = 0; i < preset.slots.size(); ++i) {
         if (!preset.slots[i]) {
@@ -21,6 +22,10 @@ PresetStage stage_preset(const Preset &preset, const EquippedRelics &equipped,
             result.skipped[i] = reason;
             continue;
         }
+        if (invalid) {
+            result.drafts.slots[i] = *preset.slots[i];
+            continue;
+        }
         const auto validation = validator.validate(item_id, *preset.slots[i], context);
         if (const auto *valid = std::get_if<Obtainable>(&validation))
             result.drafts.slots[i] = valid->effects;
@@ -30,12 +35,12 @@ PresetStage stage_preset(const Preset &preset, const EquippedRelics &equipped,
     return result;
 }
 Preset capture_preset(const EquippedRelics &equipped, const RelicValidator &validator,
-                      const RuleContext &context) {
+                      const RuleContext &context, bool invalid) {
     Preset current{};
     for (std::size_t i = 0; i < current.slots.size(); ++i)
         if (equipped.slots[i])
             current.slots[i] = equipped.slots[i]->effects;
-    return stage_preset(current, equipped, validator, context).drafts;
+    return stage_preset(current, equipped, validator, context, invalid).drafts;
 }
 std::string serialize_preset(const Preset &preset) {
     std::string text = "{\"effects\":[";

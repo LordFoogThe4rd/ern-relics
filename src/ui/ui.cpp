@@ -206,7 +206,7 @@ void EditorUi::draw(const EditorView &rt, bool commands_blocked,
     ImGui::BeginChild("page-content", {0, 0});
     ImGui::BeginDisabled(commands_blocked && !stopped);
     if (page_ == Page::Presets)
-        ui::draw_presets(rt, action, browser_, appearance_, equipped, editor);
+        ui::draw_presets(rt, action, browser_, appearance_, equipped, editor, state_.invalid);
     else
         ui::draw_editor(rt, action, state_, appearance_, equipped, editor);
     ImGui::EndDisabled();

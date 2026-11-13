@@ -21,7 +21,8 @@ std::string serialize_preset(const Preset &preset);
 std::optional<Preset> parse_preset(std::string_view text);
 bool valid_preset_name(std::string_view text);
 Preset capture_preset(const EquippedRelics &equipped, const RelicValidator &validator,
-                      const RuleContext &context);
+                      const RuleContext &context, bool invalid = false);
 PresetStage stage_preset(const Preset &preset, const EquippedRelics &equipped,
-                         const RelicValidator &validator, const RuleContext &context);
+                         const RelicValidator &validator, const RuleContext &context,
+                         bool invalid = false);
 } // namespace ern
