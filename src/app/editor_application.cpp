@@ -218,10 +218,10 @@ EditorOutcome EditorApplication::handle(const LoadPreset &action) {
     const auto count = static_cast<std::size_t>(
         std::count_if(action.preset.slots.begin(), action.preset.slots.end(),
                       [](const auto &slot) { return slot.has_value(); }));
-    return LoadedPresetResult{runtime_.editor().load_preset(action.preset, *equipped(),
-                                                            runtime_.validator(),
-                                                            runtime_.rule_context()),
-                              count};
+    return LoadedPresetResult{
+        runtime_.editor().load_preset(action.preset, *equipped(), runtime_.validator(),
+                                      runtime_.rule_context(), action.invalid),
+        count};
 }
 std::shared_ptr<EditorView> EditorApplication::snapshot() {
     auto next = std::make_shared<EditorView>();

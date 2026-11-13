@@ -39,8 +39,9 @@ DraftApplyResult EditorSession::apply(const EquippedRelics *equipped, const Reli
 }
 
 PresetStage EditorSession::load_preset(const Preset &preset, const EquippedRelics &equipped,
-                                       const RelicValidator &rules, const RuleContext &context) {
-    auto staged = stage_preset(preset, equipped, rules, context);
+                                       const RelicValidator &rules, const RuleContext &context,
+                                       bool invalid) {
+    auto staged = stage_preset(preset, equipped, rules, context, invalid);
     for (std::size_t i = 0; i < drafts_.size(); ++i)
         if (staged.drafts.slots[i])
             drafts_[i] = Draft{*equipped.slots[i], *staged.drafts.slots[i]};

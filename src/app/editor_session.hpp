@@ -17,7 +17,8 @@ class EditorSession {
                            const RuleContext &context, const DraftWriter &write,
                            bool invalid = false);
     PresetStage load_preset(const Preset &preset, const EquippedRelics &equipped,
-                            const RelicValidator &rules, const RuleContext &context);
+                            const RelicValidator &rules, const RuleContext &context,
+                            bool invalid = false);
 
   private:
     Drafts drafts_;
