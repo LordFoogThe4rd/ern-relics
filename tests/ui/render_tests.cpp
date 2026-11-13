@@ -1124,6 +1124,11 @@ void sequential_choices(float height) {
     state.selected_effect = {1, ern::EffectField::Effect};
     draw_editor(frame, view, state);
     require(result_icons() == 6, "An earlier effect without its required curse hid later choices");
+    state.invalid = true;
+    state.selected_effect = {1, ern::EffectField::Effect};
+    draw_editor(frame, view, state);
+    require(result_icons() == static_cast<std::ptrdiff_t>(view.rules->effects().size()),
+            "Invalid mode did not enable every effect");
 }
 
 void offscreen_result_icons() {
