@@ -25,12 +25,13 @@ flowchart LR
 | [src/relics](../src/relics) | Relic types, roll rules, validation, drafts, and preset templates |
 | [src/game](../src/game) | Memory layouts, equipment snapshots, location checks, writes, and recovery |
 | [src/data](../src/data) | Game-file decoding, rule fingerprints, display assets, preset files, and journals |
-| [src/app](../src/app) | Application workers, sessions, Undo, startup, native bindings, graphics, and input |
+| [src/app](../src/app) | Application workers, editing sessions, Undo, and preset operations |
 | [src/ui](../src/ui) | ImGui views, effect browsing, presets, diagnostics, and presentation state |
+| [src/native](../src/native) | DLL startup, native game bindings, graphics hooks, DX12 rendering, and input |
 
 The relic model is independent of game memory, storage, and graphics. Memory and
 file adapters depend on that model. `ern_application` combines them into the
-runtime. `ern_runtime` owns the compiled overlay and native binding objects,
+runtime and owns `src/app/`. `ern_runtime` owns `src/native/`,
 while `ern_ui` owns the UI library shared by rendering tests and the DLLs. The
 final `ern_relics` DLL and its integration-test variant link those same objects;
 only the integration variant adds test fixture exports.
@@ -54,8 +55,8 @@ or deleting presets can use any view. Saving a preset and Undo require the same
 character session and equipped relics. Actions that stage or apply edits also
 require the same drafts.
 
-[Dx12Renderer](../src/app/dx12_renderer.cpp) owns GPU resources. The
-[overlay](../src/app/overlay.cpp) manages graphics hooks and window input, with
+[Dx12Renderer](../src/native/dx12_renderer.cpp) owns GPU resources. The
+[overlay](../src/native/overlay.cpp) manages graphics hooks and window input, with
 renderer and ImGui state shared under one mutex. The DLL and its hooks remain
 loaded until process exit. Graphics resources follow the swap chain's lifetime.
 Icons share ImGui's font atlas. Their rectangles and texture references are read
@@ -78,7 +79,7 @@ clear drafts and Undo; an unreadable snapshot temporarily blocks editing.
 
 Apply checks the active rules and live equipment, records the edit in the journal,
 and submits a prepared request through [RelicEditQueue](../src/app/relic_edit_queue.cpp).
-The [native adapter](../src/app/native_relic_equip.cpp) processes it after the
+The [native adapter](../src/native/native_relic_equip.cpp) processes it after the
 local character's original equipment callback returns. The transaction unequips
 the relic, writes its effects, and re-equips it through the game's refresh routines.
 A failed transaction attempts to restore the original state.

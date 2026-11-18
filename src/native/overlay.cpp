@@ -1,9 +1,9 @@
-#include "app/overlay.hpp"
+#include "native/overlay.hpp"
 #include "app/editor_application.hpp"
-#include "app/dx12_renderer.hpp"
-#include "app/render_lifecycle.hpp"
+#include "native/dx12_renderer.hpp"
+#include "native/render_lifecycle.hpp"
 #include "ui/ui.hpp"
-#include "app/input.hpp"
+#include "native/input.hpp"
 
 #include <MinHook.h>
 #include <d3d12.h>

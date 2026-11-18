@@ -1,6 +1,6 @@
 #include "app/editor_application.hpp"
-#include "app/bootstrap.hpp"
-#include "app/host_protocol.hpp"
+#include "native/bootstrap.hpp"
+#include "native/host_protocol.hpp"
 #include <algorithm>
 
 namespace {

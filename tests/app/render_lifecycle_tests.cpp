@@ -1,4 +1,4 @@
-#include "app/render_lifecycle.hpp"
+#include "native/render_lifecycle.hpp"
 #include "support/check.hpp"
 
 int main() {

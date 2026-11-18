@@ -1,5 +1,5 @@
-#include "app/overlay.hpp"
-#include "app/bootstrap.hpp"
+#include "native/overlay.hpp"
+#include "native/bootstrap.hpp"
 #include "app/editor_application.hpp"
 
 #include <Windows.h>

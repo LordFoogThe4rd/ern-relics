@@ -22,7 +22,7 @@ add_library(ern_application STATIC src/app/controller.cpp)
 target_link_libraries(ern_application PUBLIC ern_game_memory ern_game_data)
 add_library(ern_ui STATIC src/ui/view.cpp)
 target_link_libraries(ern_ui PUBLIC ern_game_data imgui)
-add_library(ern_runtime OBJECT)
+add_library(ern_runtime OBJECT src/native/bootstrap.cpp)
 target_link_libraries(ern_runtime PUBLIC ern_application ern_ui minhook version dinput8 dxguid)
 add_library(ern_relics SHARED)
 target_link_libraries(ern_relics PRIVATE ern_runtime)
@@ -41,11 +41,13 @@ target_link_libraries(ern_relics PRIVATE ern_runtime)
             'src/data/source.cpp': '',
             'src/data/preset_store.hpp': '',
             'src/game/memory.cpp': '#include "relics/model.hpp"',
-            'src/ui/view.cpp': '',
-            'src/app/bootstrap.hpp': '',
+            'src/ui/view.cpp': '#include "app/editor_view.hpp"',
+            'src/ui/view.hpp': '',
             'src/app/runtime.hpp': '',
             'src/app/editor_view.hpp': '',
-            'src/app/controller.cpp': '',
+            'src/app/controller.cpp': '#include "data/source.hpp"\n#include <vendor/view.hpp>',
+            'src/native/bootstrap.cpp': '#include "app/runtime.hpp"\n#include "ui/view.hpp"',
+            'src/native/bootstrap.hpp': '',
             'tests/support/fixture.hpp': '',
         }
         for name, contents in files.items():
@@ -59,10 +61,14 @@ target_link_libraries(ern_relics PRIVATE ern_runtime)
             ('src/ui/view.cpp', 'auto &rt = runtime();'),
             ('src/ui/view.cpp', 'application().submit({});'),
             ('src/ui/view.cpp', '#include "app/runtime.hpp"'),
+            ('src/ui/view.cpp', '#include "native/bootstrap.hpp"'),
             ('src/ui/view.cpp', '#include "data/preset_store.hpp"'),
             ('src/ui/view.cpp', '#include <fstream>'),
             ('src/ui/view.cpp', 'atlas.AddFontFromFileTTF("font.ttf", 18);'),
-            ('src/app/bootstrap.hpp', '#include "support/fixture.hpp"'),
+            ('src/app/controller.cpp', '#include "native/bootstrap.hpp"'),
+            ('src/app/controller.cpp', '#include <native/missing.hpp>'),
+            ('src/app/runtime.hpp', '#include <ui/view.hpp>'),
+            ('src/native/bootstrap.hpp', '#include "support/fixture.hpp"'),
             (
                 'CMakeLists.txt',
                 files['CMakeLists.txt']
@@ -80,6 +86,24 @@ target_link_libraries(ern_relics PRIVATE ern_runtime)
                 .replace('STATIC src/relics/model.cpp', 'STATIC')
                 .replace(
                     'STATIC src/game/memory.cpp', 'STATIC src/game/memory.cpp src/relics/model.cpp'
+                ),
+            ),
+            (
+                'CMakeLists.txt',
+                files['CMakeLists.txt']
+                .replace('STATIC src/app/controller.cpp', 'STATIC')
+                .replace(
+                    'OBJECT src/native/bootstrap.cpp',
+                    'OBJECT src/native/bootstrap.cpp "src/app/controller.cpp"',
+                ),
+            ),
+            (
+                'CMakeLists.txt',
+                files['CMakeLists.txt']
+                .replace('OBJECT src/native/bootstrap.cpp', 'OBJECT')
+                .replace(
+                    'STATIC src/app/controller.cpp',
+                    'STATIC src/app/controller.cpp src/native/bootstrap.cpp',
                 ),
             ),
             (

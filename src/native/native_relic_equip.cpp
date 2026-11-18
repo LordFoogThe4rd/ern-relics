@@ -1,4 +1,4 @@
-#include "app/native_relic_equip.hpp"
+#include "native/native_relic_equip.hpp"
 #include "app/editor_application.hpp"
 #include "app/native_edit_diagnostics.hpp"
 #include "app/native_callback_hook.hpp"

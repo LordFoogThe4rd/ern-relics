@@ -1,4 +1,4 @@
-#include "app/input.hpp"
+#include "native/input.hpp"
 #include "app/editor_application.hpp"
 
 #define DIRECTINPUT_VERSION 0x0800

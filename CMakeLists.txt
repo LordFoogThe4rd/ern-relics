@@ -143,12 +143,12 @@ target_link_libraries(ern_ui PUBLIC ern_game_data imgui)
 
 # Compile DLL code once, then link production and integration-test variants.
 add_library(ern_runtime OBJECT
-    src/app/dllmain.cpp
-    src/app/bootstrap.cpp
-    src/app/native_relic_equip.cpp
-    src/app/overlay.cpp
-    src/app/dx12_renderer.cpp
-    src/app/input.cpp)
+    src/native/dllmain.cpp
+    src/native/bootstrap.cpp
+    src/native/native_relic_equip.cpp
+    src/native/overlay.cpp
+    src/native/dx12_renderer.cpp
+    src/native/input.cpp)
 target_link_libraries(ern_runtime PUBLIC ern_application ern_ui minhook version dinput8 dxguid)
 target_compile_definitions(ern_runtime PRIVATE ERN_VERSION="${PROJECT_VERSION}")
 

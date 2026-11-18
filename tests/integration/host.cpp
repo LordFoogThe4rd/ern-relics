@@ -1,5 +1,5 @@
-#include "app/host_protocol.hpp"
-#include "app/overlay.hpp"
+#include "native/host_protocol.hpp"
+#include "native/overlay.hpp"
 #include "support/synthetic_rules.hpp"
 #include "support/synthetic_assets.hpp"
 

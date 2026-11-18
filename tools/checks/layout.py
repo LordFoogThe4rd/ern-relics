@@ -31,7 +31,9 @@ def check_build_graph(root):
         'relics': 'ern_relic_model',
         'game': 'ern_game_memory',
         'data': 'ern_game_data',
+        'app': 'ern_application',
         'ui': 'ern_ui',
+        'native': 'ern_runtime',
     }
     links = {target: set() for target in dependencies}
     declared = set()
@@ -50,7 +52,7 @@ def check_build_graph(root):
             )
         else:
             for source in arguments:
-                parts = source.split('/')
+                parts = source.strip('"').split('/')
                 if len(parts) >= 3 and parts[0] == 'src':
                     owner = owners.get(parts[1])
                     if owner is not None and owner != target:
@@ -88,7 +90,13 @@ def check_cpp_boundaries(root):
         for directory in ('src', 'tests')
         for path in (root / directory).rglob('*.hpp')
     }
-    allowed = {'relics': {'relics'}, 'game': {'game', 'relics'}, 'data': {'data', 'relics'}}
+    project_directories = {header.partition('/')[0] for header in headers.values()}
+    allowed = {
+        'relics': {'relics'},
+        'game': {'game', 'relics'},
+        'data': {'data', 'relics'},
+        'app': {'app', 'data', 'game', 'relics'},
+    }
     readonly = {
         'app/editor_view.hpp',
         'app/editor_command.hpp',
@@ -104,7 +112,12 @@ def check_cpp_boundaries(root):
             relative = path.relative_to(root)
             parts = relative.parts
             contents = path.read_text(encoding='utf-8')
-            for include in re.findall(r'^\s*#include "([^"]+)"', contents, re.M):
+            for delimiter, include in re.findall(
+                r'^[ \t]*#[ \t]*include[ \t]*([<"])([^>"\n]+)[>"]', contents, re.M
+            ):
+                include_directory = include.replace('\\', '/').partition('/')[0].lower()
+                if delimiter == '<' and include_directory not in project_directories:
+                    continue
                 expected = headers.get(Path(include).name)
                 if expected is not None and include != expected:
                     raise ValueError(f'{relative}: use "{expected}", found "{include}"')
@@ -256,7 +269,7 @@ def check(root):
     check_python_dependencies(root)
     check_release_versions(root)
     print(
-        f'PASS: {source_count} C++ sources registered; target graph, UI boundaries, imports, links, pins, dependency usage, and release versions match.'
+        f'PASS: {source_count} C++ sources registered; target graph, include boundaries, imports, links, pins, dependency usage, and release versions match.'
     )
 
 
