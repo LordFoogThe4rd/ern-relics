@@ -5,27 +5,45 @@
 #include "relics/preset.hpp"
 
 namespace ern {
-struct RefreshInspection {};
+// Equipped checks the character session and equipped relics. Drafts also checks pending edits.
+enum class ActionFreshness { Independent, Equipped, Drafts };
+
+struct RefreshInspection {
+    static constexpr auto freshness = ActionFreshness::Independent;
+};
 struct SetEffect {
+    static constexpr auto freshness = ActionFreshness::Drafts;
     std::size_t slot;
     EffectPosition effect;
     std::uint32_t id;
 };
 struct ReloadSlot {
+    static constexpr auto freshness = ActionFreshness::Drafts;
     std::size_t slot;
 };
-struct DiscardDrafts {};
-struct ApplyDrafts {};
-struct UndoEdit {};
-struct ReloadPresets {};
+struct DiscardDrafts {
+    static constexpr auto freshness = ActionFreshness::Drafts;
+};
+struct ApplyDrafts {
+    static constexpr auto freshness = ActionFreshness::Drafts;
+};
+struct UndoEdit {
+    static constexpr auto freshness = ActionFreshness::Equipped;
+};
+struct ReloadPresets {
+    static constexpr auto freshness = ActionFreshness::Independent;
+};
 struct SavePreset {
+    static constexpr auto freshness = ActionFreshness::Equipped;
     std::string name;
     PresetSaveMode mode = PresetSaveMode::Create;
 };
 struct DeletePreset {
+    static constexpr auto freshness = ActionFreshness::Independent;
     std::string name;
 };
 struct LoadPreset {
+    static constexpr auto freshness = ActionFreshness::Drafts;
     Preset preset;
 };
 using EditorAction =

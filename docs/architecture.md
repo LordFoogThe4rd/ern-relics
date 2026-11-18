@@ -48,6 +48,12 @@ returns `EditorAction` commands. It keeps selection, search, and popup state
 locally. The application handles one command at a time and publishes the result
 in a later view. Rendering does not access game memory or files.
 
+Each action declares in [editor_command.hpp](../src/app/editor_command.hpp) which
+parts of its view must still match when it runs. Refreshing inspection and reloading
+or deleting presets can use any view. Saving a preset and Undo require the same
+character session and equipped relics. Actions that stage or apply edits also
+require the same drafts.
+
 [Dx12Renderer](../src/app/dx12_renderer.cpp) owns GPU resources. The
 [overlay](../src/app/overlay.cpp) manages graphics hooks and window input, with
 renderer and ImGui state shared under one mutex. The DLL and its hooks remain

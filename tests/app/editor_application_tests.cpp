@@ -162,13 +162,21 @@ void workflows() {
                       "Draft staging changed an older immutable view");
         const auto reviewed = view;
         view = request(app, ern::SetEffect{0, {1, ern::EffectField::Effect}, 7000601});
-        require_stale(request(app, ern::ApplyDrafts{}, reviewed));
+        for (const ern::EditorAction &action : std::array<ern::EditorAction, 5>{
+                 ern::SetEffect{0, {0, ern::EffectField::Effect}, 7000401}, ern::ReloadSlot{0},
+                 ern::DiscardDrafts{}, ern::ApplyDrafts{}, ern::LoadPreset{preset}})
+            require_stale(request(app, action, reviewed));
         test::require(fixture.writes == 0 && fixture.journal_size() == 0,
                       "An obsolete draft review reached persistence");
+        view = request(app, ern::SavePreset{"demo", ern::PresetSaveMode::Replace}, reviewed);
+        test::require(std::holds_alternative<ern::SavedPresetResult>(outcome(view)) &&
+                          view->presets->front().contents == preset,
+                      "Newer drafts blocked saving or changed the saved equipped relics");
         view = request(app, ern::DiscardDrafts{});
         view = request(app, ern::SetEffect{0, {0, ern::EffectField::Effect}, 7000400});
         view = request(app, ern::SetEffect{1, {0, ern::EffectField::Effect}, 7000400});
-        require_applied(request(app, ern::ApplyDrafts{}), 2);
+        const auto edited = request(app, ern::ApplyDrafts{});
+        require_applied(edited, 2);
         view = request(app, ern::SavePreset{"demo"});
         test::require(std::get<ern::PresetStoreError>(outcome(view)) ==
                               ern::PresetStoreError::AlreadyExists &&
@@ -179,7 +187,9 @@ void workflows() {
                           view->presets->front().contents != preset &&
                           saved->presets->front().contents == preset,
                       "Explicit replacement failed or changed an already published preset list");
-        view = request(app, ern::UndoEdit{});
+        view = request(app, ern::SetEffect{2, {0, ern::EffectField::Effect}, 7000400});
+        test::require(view->drafts != edited->drafts, "The Undo fixture did not change its drafts");
+        view = request(app, ern::UndoEdit{}, edited);
         const auto &undone = std::get<ern::UndoneEdit>(outcome(view)).result;
         test::require(!undone.failure && undone.restored == 2 && !view->can_undo &&
                           fixture.bytes() == initial_memory,
@@ -193,9 +203,6 @@ void workflows() {
         test::require(std::get<ern::PresetStoreError>(outcome(view)) ==
                           ern::PresetStoreError::InvalidName,
                       "The application lost typed preset storage errors");
-        view = request(app, ern::DeletePreset{"demo"});
-        test::require(view->presets->empty() && saved->presets->size() == 1,
-                      "Deleting a preset mutated a retained view");
         request(app, ern::SetEffect{0, {0, ern::EffectField::Effect}, 7000400});
         const auto applied = request(app, ern::ApplyDrafts{});
         require_applied(applied);
@@ -204,6 +211,15 @@ void workflows() {
             await(app, [&](const auto &next) { return next.session != applied->session; });
         test::require(!unloaded->completion,
                       "An observed character unload retained the previous command result");
+        const auto reloaded = request(app, ern::ReloadPresets{}, retained);
+        test::require(std::holds_alternative<std::monostate>(outcome(reloaded)) &&
+                          reloaded->presets->size() == 1,
+                      "A stale character view blocked reloading presets");
+        view = request(app, ern::DeletePreset{"demo"}, retained);
+        test::require(
+            std::holds_alternative<ern::DeletedPresetResult>(outcome(view)) &&
+                view->presets->empty() && saved->presets->size() == 1,
+            "A stale character view blocked deleting a preset or changed a retained view");
         test::require(!fixture.caller_access, "Memory access escaped onto the calling thread");
     }
     test::require(retained->items().find(0x80000000u | 102u) &&
@@ -220,6 +236,8 @@ void stale_equipment_and_sessions() {
     fixture.put(test::Fixture::base + 0x3000 + 0x18,
                 ern::Effects{{7000401, UINT32_MAX}, {7000601, UINT32_MAX}, {7001802, UINT32_MAX}});
     require_stale(request(app, ern::ApplyDrafts{}, reviewed));
+    require_stale(request(app, ern::SavePreset{"demo"}, reviewed));
+    require_stale(request(app, ern::UndoEdit{}, reviewed));
     request(app, ern::DiscardDrafts{});
     reviewed = request(app, ern::SetEffect{0, {0, ern::EffectField::Effect}, 7000400});
     fixture.put(test::Fixture::base + 0x1000 + ern::game_layout::equipped_relics,
@@ -232,8 +250,9 @@ void stale_equipment_and_sessions() {
     fixture.put(test::Fixture::base + 0x308, ern::Address{0});
     request(app, ern::RefreshInspection{});
     fixture.put(test::Fixture::base + 0x308, test::Fixture::base + 0x1000);
-    const auto reloaded = request(app, ern::RefreshInspection{});
-    test::require(reloaded->session != reviewed->session && reloaded->review.relic_count == 0,
+    const auto reloaded = request(app, ern::RefreshInspection{}, reviewed);
+    test::require(std::holds_alternative<std::monostate>(outcome(reloaded)) &&
+                      reloaded->session != reviewed->session && reloaded->review.relic_count == 0,
                   "An observed unload retained drafts when owner addresses were reused");
     require_stale(request(app, ern::ApplyDrafts{}, reviewed));
     test::require(fixture.writes == 0 && fixture.journal_size() == 0,

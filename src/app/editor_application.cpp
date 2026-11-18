@@ -103,27 +103,27 @@ const EquippedRelics *EditorApplication::equipped() const {
     return std::get_if<EquippedRelics>(&runtime_.inspection());
 }
 EditorOutcome EditorApplication::execute(const Request &request) {
-    const bool independent = std::holds_alternative<RefreshInspection>(request.action) ||
-                             std::holds_alternative<ReloadPresets>(request.action) ||
-                             std::holds_alternative<DeletePreset>(request.action);
-    if (!independent) {
-        runtime_.synchronize();
-        const auto *current = equipped();
-        const auto observed = current ? std::optional{*current} : std::nullopt;
-        if (request.session != runtime_.session() || observed != request.equipped)
-            return EditRejected{
-                EditRejectReason::Stale,
-                "The character or equipped relics changed. Review the refreshed state."};
-        const bool draft_bound = std::holds_alternative<SetEffect>(request.action) ||
-                                 std::holds_alternative<ReloadSlot>(request.action) ||
-                                 std::holds_alternative<DiscardDrafts>(request.action) ||
-                                 std::holds_alternative<ApplyDrafts>(request.action) ||
-                                 std::holds_alternative<LoadPreset>(request.action);
-        if (draft_bound && runtime_.editor().drafts() != request.drafts)
-            return EditRejected{EditRejectReason::Stale,
-                                "Drafts changed. Review them before applying."};
-    }
-    return std::visit([this](const auto &action) { return handle(action); }, request.action);
+    return std::visit(
+        [this, &request](const auto &action) -> EditorOutcome {
+            constexpr ActionFreshness freshness = action.freshness;
+            if constexpr (freshness != ActionFreshness::Independent) {
+                static_assert(freshness == ActionFreshness::Equipped ||
+                              freshness == ActionFreshness::Drafts);
+                runtime_.synchronize();
+                const auto *current = equipped();
+                const auto observed = current ? std::optional{*current} : std::nullopt;
+                if (request.session != runtime_.session() || observed != request.equipped)
+                    return EditRejected{
+                        EditRejectReason::Stale,
+                        "The character or equipped relics changed. Review the refreshed state."};
+                if constexpr (freshness == ActionFreshness::Drafts)
+                    if (runtime_.editor().drafts() != request.drafts)
+                        return EditRejected{EditRejectReason::Stale,
+                                            "Drafts changed. Review them before applying."};
+            }
+            return handle(action);
+        },
+        request.action);
 }
 EditorOutcome EditorApplication::handle(const RefreshInspection &) {
     runtime_.refresh();
