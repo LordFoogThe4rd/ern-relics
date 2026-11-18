@@ -368,6 +368,22 @@ development rebuilds cannot change the bytes being frozen. An explicit
 is never replaced. Use
 `--output-directory <directory>` for a separate candidate.
 
+If local publication fails after the full check, the build prints the path to
+its retained checked candidate. After a hard stop, look for the candidate under
+`dist/.release-*/package` from that build. Recover with the original checked
+candidate, release version, and output directory.
+
+```powershell
+uv run --no-sync python -m tools.release.package --recover --package-directory '<checked-candidate>' --version '<version>' --output-directory '<release-output>'
+```
+
+Recovery verifies existing outputs against the checked candidate and publishes
+only the missing artifacts. When the ZIP already exists, recovery computes the
+checksum from that archive. A mismatch stops recovery. You can remove the retained
+candidate directory after recovery succeeds. If the original candidate is unavailable,
+`python -m tools.release.build --recover` builds and checks a fresh candidate.
+The fresh package must match the published file bytes, which can vary across builds.
+
 Complete in-game acceptance before publishing. Upload the ZIP to Nexus Mods.
 Users can import the same ZIP into ME3.
 
