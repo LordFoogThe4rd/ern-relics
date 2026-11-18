@@ -203,10 +203,12 @@ void render(IDXGISwapChain *chain) {
         if (!r.open)
             return;
         std::optional<EditorAction> action;
-        r.graphics->render(chain, [&] {
-            r.ui.draw(*view, application().pending(), action, r.open);
-            set_input_capture(r.open, r.window);
-        });
+        r.graphics->render(
+            chain, [&] { r.ui.prepare_frame(*view); },
+            [&] {
+                r.ui.draw(*view, application().pending(), action, r.open);
+                set_input_capture(r.open, r.window);
+            });
         if (action)
             application().submit(*view, std::move(*action));
         ++r.stats.frames;

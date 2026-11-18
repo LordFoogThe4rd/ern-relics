@@ -111,7 +111,8 @@ void Dx12Renderer::wait_idle() const {
     if (!wait_for(next_fence))
         throw std::runtime_error("Timed out waiting for overlay GPU work");
 }
-void Dx12Renderer::render(IDXGISwapChain *chain, const std::function<void()> &draw) {
+void Dx12Renderer::render(IDXGISwapChain *chain, const std::function<void()> &prepare,
+                          const std::function<void()> &draw) {
     auto &r = *this;
     ComPtr<IDXGISwapChain3> chain3;
     check(chain->QueryInterface(IID_PPV_ARGS(&chain3)), "Get swap chain 3");
@@ -120,6 +121,7 @@ void Dx12Renderer::render(IDXGISwapChain *chain, const std::function<void()> &dr
     // swap-chain index without advancing ImGui's frame index.
     if (!wait_for(r.next_fence))
         throw std::runtime_error("Frame fence timed out");
+    prepare();
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::GetIO().MouseDrawCursor = true;

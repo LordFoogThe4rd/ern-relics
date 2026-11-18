@@ -53,8 +53,10 @@ in a later view. Rendering does not access game memory or files.
 renderer and ImGui state shared under one mutex. The DLL and its hooks remain
 loaded until process exit. Graphics resources follow the swap chain's lifetime.
 Icons share ImGui's font atlas. Their rectangles and texture references are read
-when drawing because loading glyphs can resize the atlas. The renderer allocates
-separate SRV descriptors for old and new textures until ImGui retires them.
+when drawing because loading glyphs can resize the atlas. When the worker publishes
+new display assets, the renderer replaces the icon rectangle before drawing the new
+view. Fonts stay loaded. The renderer allocates separate SRV descriptors for old
+and new textures until ImGui retires them.
 
 ## Relic editing
 
@@ -99,5 +101,7 @@ before an edit starts.
 The first usable equipment and rule snapshot binds the rule fingerprint until
 process exit. Missing, unreadable, or changed rules lock editing.
 
-Names and icons use loose mod overrides before installed archives. Missing display
-assets fall back to numeric labels and placeholders without changing validation.
+Names and icons use loose mod overrides before installed archives. The application
+worker reloads display assets when accepted rules request a different set of icons,
+including when missing rules become readable. Missing display assets fall back to
+numeric labels and placeholders without changing validation.

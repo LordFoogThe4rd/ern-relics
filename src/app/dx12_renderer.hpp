@@ -13,7 +13,8 @@ class Dx12Renderer {
     ~Dx12Renderer();
     Dx12Renderer(const Dx12Renderer &) = delete;
     Dx12Renderer &operator=(const Dx12Renderer &) = delete;
-    void render(IDXGISwapChain *chain, const std::function<void()> &draw);
+    void render(IDXGISwapChain *chain, const std::function<void()> &prepare,
+                const std::function<void()> &draw);
     void wait_idle() const;
 
   private:

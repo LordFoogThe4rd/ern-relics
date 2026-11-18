@@ -46,6 +46,7 @@ NoticeAction notification(Notice &message, const Appearance &appearance, UiRect 
 class Appearance {
   public:
     void initialize(const GameAssets &assets, const SystemFonts &fonts, float display_height);
+    void replace_icons(const GameAssets &assets);
     // Keep scaled layout edges on whole pixels, including at fractional display scales.
     float px(float value) const { return std::round(value * scale); }
     float space(int steps) const { return px(spacing(steps)); }
@@ -71,10 +72,9 @@ class Appearance {
     float scale = 1.f;
 
   private:
-    void load_icons(ImFontAtlas &atlas, const GameAssets &assets);
     bool atlas_image(unsigned int cell, ImVec2 position, float size, bool faded) const;
     int icon_rectangle = -1;
-    unsigned int icon_width = 0, icon_height = 0;
+    unsigned int icon_height = 0;
     std::vector<float> effect_icon_y_;
 };
 

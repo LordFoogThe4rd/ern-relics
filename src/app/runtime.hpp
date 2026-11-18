@@ -19,7 +19,7 @@ namespace ern {
 class Runtime {
   public:
     void initialize(RuntimeEnvironment environment);
-    // Called by the application worker after installing the queue-capture hooks.
+    // Called by the application worker before publishing accepted rules and assets.
     void prepare_assets();
     void poll();
     void refresh();
@@ -88,6 +88,8 @@ class Runtime {
     EditorSession editor_;
     RuleContext rule_context_ = UnknownRules{"Waiting for the game data."};
     std::shared_ptr<const GameAssets> assets_ = std::make_shared<const GameAssets>();
+    std::shared_ptr<const RelicValidator> asset_rules_;
+    std::optional<std::vector<IconKey>> asset_icons_;
     SessionId session_;
     std::string last_rule_diagnostics_;
     std::optional<std::string> native_edit_error_;

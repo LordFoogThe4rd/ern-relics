@@ -4,6 +4,7 @@
 #include "data/asset_types.hpp"
 #include "game/game_layout.hpp"
 #include "game/relic_writer.hpp"
+#include <span>
 
 namespace ern {
 struct FileRuleSource {
@@ -25,6 +26,7 @@ struct RuntimeEnvironment {
     bool layout_verified = false;
     std::variant<FileRuleSource, RegulationRules> rules;
     GameAssets assets;
+    std::function<GameAssets(std::span<const IconKey>)> load_assets;
     MemoryRead read;
     MemoryWrite write;
     // Supplied by the native game adapter. Synthetic hosts use the direct memory writer.

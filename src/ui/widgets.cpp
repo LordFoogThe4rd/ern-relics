@@ -12,12 +12,23 @@ namespace {
 constexpr int notification_height = 14, notification_gap = 2;
 }
 // Share the existing font texture, preserving its DX12 descriptor/fence lifetime.
-void Appearance::load_icons(ImFontAtlas &atlas, const GameAssets &assets) {
+void Appearance::replace_icons(const GameAssets &assets) {
+    auto &atlas = *ImGui::GetIO().Fonts;
+    if (icon_rectangle >= 0)
+        atlas.RemoveCustomRect(icon_rectangle);
+    icon_rectangle = -1;
+    icon_height = 0;
+    effect_icon_y_.clear();
     const auto &icons = assets.atlas;
-    icon_width = icons.width;
-    icon_height = icons.height;
     if (icons.rgba.empty())
         return;
+    atlas.TexMinWidth = 4096;
+    ImFontAtlasRect rect;
+    icon_rectangle =
+        atlas.AddCustomRect(static_cast<int>(icons.width), static_cast<int>(icons.height), &rect);
+    if (icon_rectangle < 0)
+        return;
+    icon_height = icons.height;
     effect_icon_y_.assign(IconAtlas::columns * (icon_height / IconAtlas::cell_size), 0.f);
     for (std::size_t cell = 0; cell < effect_icon_y_.size(); ++cell) {
         std::array<unsigned int, IconAtlas::icon_size> coverage{};
@@ -25,7 +36,7 @@ void Appearance::load_icons(ImFontAtlas &atlas, const GameAssets &assets) {
             for (unsigned int x = 0; x < IconAtlas::icon_size; ++x) {
                 const auto at =
                     ((cell / IconAtlas::columns * IconAtlas::cell_size + IconAtlas::gutter + y) *
-                         icon_width +
+                         icons.width +
                      cell % IconAtlas::columns * IconAtlas::cell_size + IconAtlas::gutter + x) *
                     4;
                 if (icons.rgba[at + 3] >= 32)
@@ -42,13 +53,8 @@ void Appearance::load_icons(ImFontAtlas &atlas, const GameAssets &assets) {
         if (top < bottom)
             effect_icon_y_[cell] = float(top + bottom) / (2 * IconAtlas::icon_size) - .5f;
     }
-    atlas.TexMinWidth = 4096;
-    icon_rectangle =
-        atlas.AddCustomRect(static_cast<int>(icon_width), static_cast<int>(icon_height));
-    ImFontAtlasRect rect;
-    atlas.GetCustomRect(icon_rectangle, &rect);
     for (unsigned int y = 0; y < icon_height; ++y)
-        std::copy_n(icons.rgba.data() + std::size_t(y) * icon_width * 4, icon_width * 4,
+        std::copy_n(icons.rgba.data() + std::size_t(y) * icons.width * 4, icons.width * 4,
                     static_cast<unsigned char *>(atlas.TexData->GetPixelsAt(rect.x, rect.y + y)));
     atlas.TexPixelsUseColors = atlas.TexData->UseColors = true;
 }
@@ -547,6 +553,7 @@ void Appearance::initialize(const GameAssets &assets, const SystemFonts &fonts,
     auto &io = ImGui::GetIO();
     // Rebuilt only while the renderer is stopped, including after a resolution change.
     io.Fonts->Clear();
+    icon_rectangle = -1;
     io.IniFilename = io.LogFilename = nullptr;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     const auto add_font = [&](const auto &bytes, float size) -> ImFont * {
@@ -567,7 +574,7 @@ void Appearance::initialize(const GameAssets &assets, const SystemFonts &fonts,
     tag_font = add_font(fonts.controls, 16.f);
     title_font = add_font(fonts.headings, 24.f);
     name_font = add_font(fonts.headings, 20.f);
-    load_icons(*io.Fonts, assets);
+    replace_icons(assets);
 }
 
 } // namespace ern::ui

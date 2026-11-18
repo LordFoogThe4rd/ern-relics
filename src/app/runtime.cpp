@@ -1,7 +1,6 @@
 #include "app/runtime.hpp"
 #include <Windows.h>
 #include "data/edit_journal.hpp"
-#include "data/game_assets.hpp"
 #include "data/catalog_presentation.hpp"
 
 namespace ern {
@@ -203,15 +202,23 @@ void Runtime::update_rule_context() {
 }
 
 void Runtime::prepare_assets() {
-    if (!environment_.game_directory.empty()) {
+    auto accepted = rules();
+    if (accepted == asset_rules_)
+        return;
+    asset_rules_ = std::move(accepted);
+    auto icons = environment_.load_assets ? requested_icons(*asset_rules_) : std::vector<IconKey>{};
+    if (asset_icons_ == icons)
+        return;
+    if (environment_.load_assets) {
         GameAssets loaded;
         try {
-            loaded = read_game_assets(environment_.game_directory, requested_icons(validator()));
+            loaded = environment_.load_assets(icons);
         } catch (const std::exception &error) {
             loaded.warnings.push_back(error.what());
         }
         assets_ = std::make_shared<const GameAssets>(std::move(loaded));
     }
+    asset_icons_ = std::move(icons);
     log("Local game assets: " + std::to_string(assets().item_names.size()) + " item names, " +
         std::to_string(assets().effect_names.size()) + " effect names, " +
         std::to_string(assets().cells.size()) + " icon cells.");

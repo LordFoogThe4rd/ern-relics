@@ -137,6 +137,14 @@ void EditorUi::consume(const EditorView &view) {
 }
 void EditorUi::initialize(const EditorView &view, float display_height) {
     appearance_.initialize(view.assets(), *view.fonts, display_height);
+    resources_ = view.resources;
+}
+
+void EditorUi::prepare_frame(const EditorView &view) {
+    if (view.resources != resources_) {
+        appearance_.replace_icons(view.assets());
+        resources_ = view.resources;
+    }
 }
 
 void EditorUi::draw(const EditorView &rt, bool pending, std::optional<EditorAction> &action,

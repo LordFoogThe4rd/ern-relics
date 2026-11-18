@@ -41,10 +41,11 @@ inline Bytes item(std::uint8_t salable, std::uint8_t deep, std::array<std::int32
     return row;
 }
 
-inline Bytes effect(std::int32_t id) {
+inline Bytes effect(std::int32_t id, std::int32_t icon = 0) {
     Bytes row(68);
     put(row, 24, std::int32_t(-1));
     put(row, 28, id);
+    put(row, 40, icon);
     put(row, 52, -id);
     put(row, 60, std::int32_t(-1));
     return row;
@@ -79,11 +80,11 @@ inline Bytes binder(const std::array<Bytes, 3> &params, bool with_ids = true) {
     return result;
 }
 
-inline Bytes rolled_relics() {
+inline Bytes rolled_relics(std::int32_t icon = 0) {
     const auto items = param(2, {{102, item(1, 0, {10, 20, 30})},
                                  {105, item(1, 0, {10, 20, 30})},
                                  {108, item(1, 0, {10, 20, 30})}});
-    const auto effects = param(3, {{7000400, effect(7000400)},
+    const auto effects = param(3, {{7000400, effect(7000400, icon)},
                                    {7000401, effect(7000401)},
                                    {7000601, effect(7000601)},
                                    {7000602, effect(7000602)},

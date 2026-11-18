@@ -1165,6 +1165,88 @@ void atlas_growth() {
     Frame::end();
 }
 
+void refreshed_icon_atlas() {
+    auto view = fixture(false, false);
+    auto artwork = std::make_shared<ern::GameAssets>(view.assets());
+    artwork->cells.clear();
+    constexpr ern::IconKey icon{ern::IconKind::Status, 7000400};
+    view.resources = std::make_shared<const ern::GameAssets>();
+    // Keep the same context and editor as worker snapshots change.
+    constexpr float height = 900.f;
+    Frame frame(height, view, true);
+    ern::EditorUi ui;
+    ui.initialize(view, height);
+    auto &atlas = *ImGui::GetIO().Fonts;
+    const auto *font = ImGui::GetIO().FontDefault;
+    const auto draw = [&] {
+        std::optional<ern::EditorAction> action;
+        bool open = true;
+        ui.prepare_frame(view);
+        ImGui::NewFrame();
+        ui.draw(view, false, action, open);
+        ImGui::Render();
+    };
+    const auto icon_rect = [&]() -> const ImTextureRect * {
+        for (const auto &rect : atlas.Builder->Rects)
+            if (rect.w == artwork->atlas.width && rect.h == artwork->atlas.height)
+                return &rect;
+        return nullptr;
+    };
+    const auto check_cell = [&](unsigned int cell) {
+        const auto *rect = icon_rect();
+        require(rect, "A published icon rectangle was missing from the atlas");
+        const auto x = cell * ern::IconAtlas::cell_size + ern::IconAtlas::gutter;
+        const auto y = ern::IconAtlas::gutter;
+        auto *texture = atlas.TexData;
+        const float u = float(rect->x + x) / texture->Width;
+        const float v = float(rect->y + y) / texture->Height;
+        bool drawn = false;
+        for (const auto *list : ImGui::GetDrawData()->CmdLists)
+            for (const auto &command : list->CmdBuffer)
+                if (command.TexRef._TexData == texture)
+                    for (unsigned int i = command.IdxOffset;
+                         i < command.IdxOffset + command.ElemCount; ++i) {
+                        const auto uv = list->VtxBuffer[command.VtxOffset + list->IdxBuffer[i]].uv;
+                        drawn |= std::abs(uv.x - u) < .00001f && std::abs(uv.y - v) < .00001f;
+                    }
+        require(drawn, "The recovered icon did not draw from the current atlas cell");
+        for (unsigned int row = 0; row < ern::IconAtlas::icon_size; ++row)
+            require(std::memcmp(texture->GetPixelsAt(rect->x + x, rect->y + y + row),
+                                artwork->atlas.rgba.data() +
+                                    (std::size_t(y + row) * artwork->atlas.width + x) * 4,
+                                ern::IconAtlas::icon_size * 4) == 0,
+                    "The rendered atlas cell did not contain the published artwork");
+    };
+    draw();
+    require(!icon_rect(), "Missing artwork populated an icon rectangle");
+    artwork->cells.emplace(icon, 0);
+    view.resources = artwork;
+    draw();
+    check_cell(0);
+    auto *texture = atlas.TexData;
+    texture->SetStatus(ImTextureStatus_OK);
+    draw();
+    require(icon_rect() && atlas.TexData == texture && texture->Status == ImTextureStatus_OK,
+            "An unchanged snapshot rebuilt or uploaded the atlas");
+
+    artwork = std::make_shared<ern::GameAssets>(*artwork);
+    artwork->cells.at(icon) = 3;
+    constexpr auto sample = ern::IconAtlas::gutter + 32;
+    const auto pixel =
+        std::size_t(sample) * artwork->atlas.width + 3 * ern::IconAtlas::cell_size + sample;
+    artwork->atlas.rgba[pixel * 4] = 211;
+    view.resources = artwork;
+    draw();
+    check_cell(3);
+    require(atlas.TexData->Status == ImTextureStatus_WantCreate ||
+                atlas.TexData->Status == ImTextureStatus_WantUpdates,
+            "The renderer was not asked to upload the refreshed artwork");
+    view.resources = std::make_shared<const ern::GameAssets>();
+    draw();
+    require(!icon_rect() && ImGui::GetIO().FontDefault == font,
+            "Removing artwork left a stale rectangle or reloaded the fonts");
+}
+
 void native_text_pixels(float height) {
     auto view = fixture(false, false);
     Frame frame(height, view);
@@ -1355,6 +1437,7 @@ int main() {
     return test::run(
         "rendered icon alignment, compact layout, tooltips and validation across five scales", [] {
             atlas_growth();
+            refreshed_icon_atlas();
             for (const float height : {720.f, 900.f, 1080.f, 1440.f, 2160.f}) {
                 for (const bool deep : {false, true})
                     for (const bool wrapped : {false, true}) {

@@ -4,6 +4,7 @@
 #include "app/event_log.hpp"
 #include "app/native_relic_equip.hpp"
 #include "app/process_guard.hpp"
+#include "data/game_assets.hpp"
 #include "game/pattern.hpp"
 #include <charconv>
 #include <sstream>
@@ -230,6 +231,10 @@ bool bootstrap_application(HMODULE module) {
             environment.native_edit_error = native_relic_equip_error;
         }
     }
+    if (!environment.game_directory.empty())
+        environment.load_assets = [directory = environment.game_directory](auto icons) {
+            return read_game_assets(directory, icons);
+        };
     const bool native_refresh = !host && environment.layout_verified;
     const auto refresh_error = environment.edit_lock;
     application().initialize(std::move(environment));

@@ -54,10 +54,10 @@ void EditorApplication::run(std::stop_token stop) {
         runtime_.initialize(std::move(*environment_));
         environment_.reset();
         log_.flush();
-        runtime_.prepare_assets();
         fonts_ = std::make_shared<const SystemFonts>(read_system_fonts());
         runtime_.refresh();
         reload_presets();
+        runtime_.prepare_assets();
         publish();
         phase_.store(Phase::Idle);
         while (!stop.stop_requested()) {
@@ -86,6 +86,7 @@ void EditorApplication::run(std::stop_token stop) {
                 if (runtime_.session() != session)
                     completion_.reset();
             }
+            runtime_.prepare_assets();
             publish();
             if (request)
                 phase_.store(Phase::Idle);

@@ -403,6 +403,70 @@ void blocked_io_and_fresh_checks() {
     test::require(!fixture.caller_access, "Storage commands used memory on the calling thread");
 }
 
+void display_assets_follow_accepted_rules() {
+    Fixture fixture;
+    const auto game_root = fixture.memory.roots.game_data_global;
+    fixture.put(game_root, ern::Address{0});
+    constexpr ern::IconKey first{ern::IconKind::Status, 41001};
+    constexpr ern::IconKey second{ern::IconKind::Status, 41002};
+    constexpr ern::IconKey rejected{ern::IconKind::Status, 41003};
+    std::atomic<unsigned int> revision = 0, loads = 0;
+    std::array rules{
+        test::regulation::rolled_relics(first.id), test::regulation::rolled_relics(first.id),
+        test::regulation::rolled_relics(second.id), test::regulation::rolled_relics(rejected.id)};
+    rules[1].push_back(0);
+    auto environment = fixture.environment();
+    environment.rules = ern::FileRuleSource{
+        fixture.directory / "regulation.bin",
+        [&](const auto &path) -> std::variant<ern::FileContent, ern::FileError> {
+            const auto current = revision.load();
+            if (!current)
+                return ern::FileError{"Missing fixture rules"};
+            return ern::FileContent{path, std::to_string(current), rules.at(current - 1)};
+        }};
+    environment.load_assets = [&](std::span<const ern::IconKey> keys) {
+        if (std::this_thread::get_id() == fixture.caller)
+            fixture.caller_access = true;
+        ++loads;
+        ern::GameAssets assets;
+        for (auto icon : {first, second, rejected})
+            if (std::find(keys.begin(), keys.end(), icon) != keys.end())
+                assets.cells.emplace(icon, 0);
+        return assets;
+    };
+    ern::EditorApplication app;
+    app.initialize(std::move(environment));
+    app.start();
+    const auto missing = idle(app);
+    test::require(missing->source_hash.empty() && missing->assets().cells.empty() && loads == 1,
+                  "Startup with missing rules requested a rule icon");
+    revision = 1;
+    const auto recovered = await(app, [](const auto &view) { return view.source_hash == "1"; });
+    test::require(recovered->presentation().effect_cell(7000400) == 0u && loads == 2 &&
+                      missing->assets().cells.empty(),
+                  "Recovering rules did not publish the newly requested icon");
+    revision = 2;
+    const auto unchanged = request(app, ern::RefreshInspection{});
+    test::require(unchanged->source_hash == "2" && unchanged->resources == recovered->resources &&
+                      loads == 2,
+                  "Rules with the same icon keys caused another extraction");
+    revision = 3;
+    const auto updated = request(app, ern::RefreshInspection{});
+    test::require(updated->source_hash == "3" && updated->assets().cells.contains(second) &&
+                      !updated->assets().cells.contains(first) && loads == 3,
+                  "Changed pre-bind rules did not refresh their display assets");
+    fixture.put(game_root, ern::Address{test::Fixture::base + 0x300});
+    test::require(request(app, ern::RefreshInspection{})->editing_supported(),
+                  "The asset fixture failed to bind valid rules");
+    revision = 4;
+    const auto locked =
+        await(app, [](const auto &view) { return view.rule_diagnostics.detected_hash == "4"; });
+    test::require(!locked->editing_supported() && locked->source_hash == "3" &&
+                      locked->resources == updated->resources && loads == 3 &&
+                      !fixture.caller_access,
+                  "Rejected post-bind rules replaced assets or extracted them on the caller");
+}
+
 void boundary_failures() {
     Fixture fixture;
     {
@@ -458,6 +522,7 @@ int main() {
             stale_equipment_and_sessions();
             discard_rebases_current_equipment();
             blocked_io_and_fresh_checks();
+            display_assets_follow_accepted_rules();
             boundary_failures();
         });
 }
