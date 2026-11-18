@@ -990,6 +990,13 @@ void notification_layout(float height) {
     require(state.status.text.empty(), "The notification did not dismiss");
 }
 
+auto result_icons() {
+    const auto &vertices = child("/effect-results_").DrawList->VtxBuffer;
+    return std::count_if(vertices.begin(), vertices.end(),
+                         [](const auto &v) { return v.col == IM_COL32_WHITE; }) /
+           4;
+}
+
 void sequential_choices(float height) {
     auto view = fixture(true, false);
     Frame frame(height, view);
@@ -997,26 +1004,44 @@ void sequential_choices(float height) {
     state.selected = 3;
     state.selected_effect = {2, ern::EffectField::Effect};
     draw_editor(frame, view, state);
-    const auto icons = [&] {
-        const auto &vertices = child("/effect-results_").DrawList->VtxBuffer;
-        return std::count_if(vertices.begin(), vertices.end(),
-                             [](const auto &v) { return v.col == IM_COL32_WHITE; }) /
-               4;
-    };
-    require(icons() == 3, "Later rows show effects excluded by an earlier row");
+    require(result_icons() == 3, "Later rows show effects excluded by an earlier row");
     state.selected_effect = {0, ern::EffectField::Effect};
     draw_editor(frame, view, state);
-    require(icons() == 7, "Later rows hid choices while revising the first effect");
+    require(result_icons() == 7, "Later rows hid choices while revising the first effect");
     state.selected_effect = {0, ern::EffectField::Curse};
     draw_editor(frame, view, state);
-    require(icons() == 0, "Curses incompatible with the current effect are still visible");
+    require(result_icons() == 0, "Curses incompatible with the current effect are still visible");
     state.selected_effect = {2, ern::EffectField::Curse};
     draw_editor(frame, view, state);
-    require(icons() == 3, "Compatible curses were hidden from the paired row");
+    require(result_icons() == 3, "Compatible curses were hidden from the paired row");
     view.drafts[3]->effects.rows[0].effect = 7001801;
     state.selected_effect = {1, ern::EffectField::Effect};
     draw_editor(frame, view, state);
-    require(icons() == 6, "An earlier effect without its required curse hid later choices");
+    require(result_icons() == 6, "An earlier effect without its required curse hid later choices");
+}
+
+void offscreen_result_icons() {
+    auto view = fixture(true, true);
+    auto assets = view.assets();
+    for (int i = 0; i < 24; ++i)
+        assets.effect_names[7000402] +=
+            " After using the character skill, standard attacks improve.";
+    view.resources = std::make_shared<const ern::GameAssets>(std::move(assets));
+    Frame frame(720, view);
+    ern::ui::EditorState state;
+    state.selected = 3;
+    draw_editor(frame, view, state);
+    auto &results = const_cast<ImGuiWindow &>(child("/effect-results_"));
+    const float scroll_max = results.ScrollMax.y;
+    require(scroll_max > 0, "Wrapped effect results did not extend beyond the viewport");
+    require(result_icons() > 0 && result_icons() < 7,
+            "The top of the results drew icons for offscreen rows");
+    ImGui::SetScrollY(&results, scroll_max);
+    draw_editor(frame, view, state);
+    require(results.Scroll.y == scroll_max && results.ScrollMax.y == scroll_max,
+            "Scrolling changed the height of the wrapped results");
+    require(result_icons() > 0 && result_icons() < 7,
+            "The bottom of the results drew icons for offscreen rows");
 }
 
 void tooltip_hover_ownership(float height) {
@@ -1438,6 +1463,7 @@ int main() {
         "rendered icon alignment, compact layout, tooltips and validation across five scales", [] {
             atlas_growth();
             refreshed_icon_atlas();
+            offscreen_result_icons();
             for (const float height : {720.f, 900.f, 1080.f, 1440.f, 2160.f}) {
                 for (const bool deep : {false, true})
                     for (const bool wrapped : {false, true}) {

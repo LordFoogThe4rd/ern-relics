@@ -437,6 +437,12 @@ void effect_browser(const EditorView &rt, std::optional<EditorAction> &action, E
                 action = SetEffect{state.selected, index, choice.id};
                 state.status = {};
             }
+            // Submit every row for layout and keyboard navigation, then skip clipped artwork.
+            if (!ImGui::IsItemVisible()) {
+                ImGui::EndDisabled();
+                ImGui::PopID();
+                continue;
+            }
             const auto ink = text_ink(choice.description.c_str(), nullptr, 0, text_width);
             const auto alignment = align_row(row.y, row_height, appearance.space(5), ink);
             appearance.effect_icon(rt.presentation(), choice.id,
