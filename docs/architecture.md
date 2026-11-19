@@ -106,7 +106,11 @@ before an edit starts.
 [ActiveRegulation](../src/app/active_regulation.cpp) observes the active
 `regulation.bin` on a separate file worker. ME3 redirection selects the file.
 The first usable equipment and rule snapshot binds the rule fingerprint until
-process exit. Missing, unreadable, or changed rules lock editing.
+process exit. Missing, unreadable, or changed rules lock editing. The file worker
+checks every 500 ms before binding and every five seconds afterward. The longer
+interval reduces idle reads and hashing at the cost of slower automatic detection.
+Refresh and first binding trigger a fresh read and hash. Every write still
+requires the same check.
 
 Names and icons use loose mod overrides before installed archives. The application
 worker reloads display assets when accepted rules request a different set of icons,

@@ -55,15 +55,22 @@ void ActiveRegulation::read_and_publish() {
     latest_.store(std::move(next));
 }
 
-void ActiveRegulation::start(std::chrono::milliseconds interval) {
+void ActiveRegulation::start(std::chrono::milliseconds discovery_interval) {
     if (worker_.joinable())
         return;
-    worker_ = std::jthread([this, interval](std::stop_token stop) {
-        std::unique_lock wait(wait_mutex_);
-        while (!wake_.wait_for(wait, stop, interval, [] { return false; })) {
-            if (stop.stop_requested())
-                break;
-            read_and_publish();
+    worker_ = std::jthread([this, discovery_interval](std::stop_token stop) {
+        const auto bound_interval = discovery_interval * 10;
+        while (!stop.stop_requested()) {
+            {
+                std::unique_lock wait(wait_mutex_);
+                const bool bound = locked();
+                const auto interval = bound ? bound_interval : discovery_interval;
+                if (wake_.wait_for(wait, stop, interval,
+                                   [this, bound] { return bound != locked(); }))
+                    continue;
+            }
+            if (!stop.stop_requested())
+                read_and_publish();
         }
     });
 }
@@ -90,8 +97,13 @@ void ActiveRegulation::poll() {
 }
 
 void ActiveRegulation::lock_source() {
-    if (!source_hash_.empty() && diagnostics_.error.empty())
+    if (locked() || source_hash_.empty() || !diagnostics_.error.empty())
+        return;
+    {
+        std::lock_guard lock(wait_mutex_);
         locked_hash_ = source_hash_;
+    }
+    wake_.notify_all();
 }
 
 RuleContext ActiveRegulation::context(DlcState dlc) const {

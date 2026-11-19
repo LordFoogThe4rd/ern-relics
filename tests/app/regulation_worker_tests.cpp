@@ -1,11 +1,67 @@
 #include "app/active_regulation.hpp"
 #include "support/check.hpp"
+#include "support/regulation_fixture.hpp"
 #include <future>
 #include <algorithm>
 
+namespace {
+using namespace std::chrono_literals;
+
+void bound_worker_checks() {
+    const auto bytes = test::regulation::rolled_relics();
+    const auto foreground = std::this_thread::get_id();
+    std::mutex gate;
+    std::condition_variable changed;
+    unsigned int foreground_reads = 0, background_reads = 0;
+    std::string hash = "original";
+    ern::ActiveRegulation active{
+        "unused.bin", {}, [&](const auto &path) -> std::variant<ern::FileContent, ern::FileError> {
+            std::unique_lock lock(gate);
+            if (std::this_thread::get_id() == foreground) {
+                ++foreground_reads;
+            } else {
+                ++background_reads;
+                changed.notify_all();
+                // Keep a discovery read in progress while the source binds.
+                if (background_reads == 2)
+                    changed.wait_for(lock, 2s, [&] { return hash != "original"; });
+            }
+            return ern::FileContent{path, hash, bytes};
+        }};
+    active.verify();
+    active.start(50ms);
+    {
+        std::unique_lock lock(gate);
+        test::require(changed.wait_for(lock, 2s, [&] { return background_reads == 2; }),
+                      "The unbound worker did not keep checking for rules");
+    }
+    active.lock_source();
+    test::require(active.locked(), "The fixture failed to bind valid rules");
+    {
+        std::lock_guard lock(gate);
+        hash = "changed";
+    }
+    changed.notify_all();
+
+    active.verify();
+    test::require(foreground_reads == 2 && active.source_hash() == "original" &&
+                      active.diagnostics().detected_hash == "changed" &&
+                      active.diagnostics().error.find("Restart") != std::string::npos,
+                  "A fresh check bypassed the reader or accepted a changed bound source");
+    {
+        std::unique_lock lock(gate);
+        const auto checked_again = [&] { return background_reads > 2; };
+        test::require(!changed.wait_for(lock, 150ms, checked_again),
+                      "The bound worker kept reading at the discovery interval");
+        test::require(changed.wait_for(lock, 2s, checked_again),
+                      "The bound worker stopped checking for changes");
+    }
+}
+} // namespace
+
 int main() {
     return test::run("nonblocking regulation observations, fresh checks and worker shutdown", [] {
-        using namespace std::chrono_literals;
+        bound_worker_checks();
         std::mutex gate;
         std::condition_variable changed;
         unsigned int reads = 0, concurrent = 0, maximum_concurrent = 0;

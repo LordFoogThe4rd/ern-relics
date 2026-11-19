@@ -20,7 +20,7 @@ class ActiveRegulation {
     ActiveRegulation(std::filesystem::path requested, std::filesystem::path game_directory = {},
                      RegulationRead read = read_file);
     ~ActiveRegulation();
-    void start(std::chrono::milliseconds interval = std::chrono::milliseconds(500));
+    void start(std::chrono::milliseconds discovery_interval = std::chrono::milliseconds(500));
     // Poll only consumes an immutable observation. Verify serializes with the file worker.
     void poll();
     void verify();
@@ -48,6 +48,7 @@ class ActiveRegulation {
     std::shared_ptr<const RelicValidator> rules_ = std::make_shared<const RelicValidator>();
     std::string source_hash_;
     RegulationDiagnostics diagnostics_;
+    // The worker checks whether a hash is bound while holding wait_mutex_.
     std::optional<std::string> locked_hash_;
     std::jthread worker_;
 };

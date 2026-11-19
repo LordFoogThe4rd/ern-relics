@@ -478,11 +478,10 @@ void display_assets_follow_accepted_rules() {
     test::require(request(app, ern::RefreshInspection{})->editing_supported(),
                   "The asset fixture failed to bind valid rules");
     revision = 4;
-    const auto locked =
-        await(app, [](const auto &view) { return view.rule_diagnostics.detected_hash == "4"; });
-    test::require(!locked->editing_supported() && locked->source_hash == "3" &&
-                      locked->resources == updated->resources && loads == 3 &&
-                      !fixture.caller_access,
+    const auto locked = request(app, ern::RefreshInspection{});
+    test::require(!locked->editing_supported() && locked->rule_diagnostics.detected_hash == "4" &&
+                      locked->source_hash == "3" && locked->resources == updated->resources &&
+                      loads == 3 && !fixture.caller_access,
                   "Rejected post-bind rules replaced assets or extracted them on the caller");
 }
 
