@@ -6,7 +6,7 @@
 namespace ern::ui {
 void draw_diagnostics(const EditorView &rt, std::optional<EditorAction> &action,
                       const Appearance &appearance, const EquippedRelics *equipped,
-                      std::size_t selected, UiRect editor) {
+                      std::optional<std::size_t> selected, UiRect editor) {
     const auto position = ImGui::GetCursorScreenPos();
     if (button("Diagnostics", {appearance.space(24), 0}))
         ImGui::OpenPopup("Diagnostics");
@@ -25,7 +25,9 @@ void draw_diagnostics(const EditorView &rt, std::optional<EditorAction> &action,
         const float action_width = appearance.space(18), gap = appearance.space(2);
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - action_width * 2 - gap);
+        ImGui::BeginDisabled(rt.worker_stopped());
         const bool refresh = button("Refresh", {action_width, 0});
+        ImGui::EndDisabled();
         ImGui::SameLine(0, gap);
         if (button("Close", {action_width, 0}))
             ImGui::CloseCurrentPopup();
@@ -59,8 +61,8 @@ void draw_diagnostics(const EditorView &rt, std::optional<EditorAction> &action,
                                                       : "Unknown; both rule sets must agree");
             if (const auto *reason = rt.editing_lock_reason())
                 row("Editing", reason, amber);
-            if (equipped && equipped->slots[selected]) {
-                const auto &relic = *equipped->slots[selected];
+            if (equipped && selected && equipped->slots[*selected]) {
+                const auto &relic = *equipped->slots[*selected];
                 row("Item ID", std::to_string(relic.item_id & 0x0FFFFFFF));
                 row("Inventory index", std::to_string(relic.inventory_index()));
             }

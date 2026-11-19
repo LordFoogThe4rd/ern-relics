@@ -458,6 +458,15 @@ void preset_replacement(float height) {
                 create->mode == ern::PresetSaveMode::Create &&
                 ImGui::GetCurrentContext()->OpenPopupStack.empty(),
             "Saving a new name required confirmation or retained replacement intent");
+    action.reset();
+    std::copy_n("Fixture preset", sizeof("Fixture preset"), browser.name);
+    activate("render-check", "Replace preset");
+    require(child("Replace preset?").Active, "Replacement did not open before worker failure");
+    view.application_error = "Injected worker failure";
+    activate("Replace preset?", "Replace preset");
+    require(!action && browser.pending_replace.empty() &&
+                ImGui::GetCurrentContext()->OpenPopupStack.empty(),
+            "Worker failure left a replacement available for confirmation");
 }
 
 void glyph_bounds(float height) {
@@ -589,6 +598,103 @@ void read_only_and_pending(float height) {
     require(text_bottom > text_top && std::abs((text_top - banner.Pos.y) -
                                                (banner.Pos.y + banner.Size.y - text_bottom)) <= 2.f,
             "The editing lock notice has uneven visible padding");
+}
+
+void stopped_worker(float height, bool presets) {
+    auto view = fixture(false, false);
+    view.version = "Last published game version";
+    view.hotkey_name = "F8";
+    ern::Preset preset;
+    preset.slots[0] = view.drafts[0]->effects;
+    view.presets = std::make_shared<const std::vector<ern::SavedPreset>>(
+        std::vector<ern::SavedPreset>{{"Fixture preset", preset}});
+    Frame frame(height, view, true);
+    ern::EditorUi ui;
+    ui.initialize(view, height);
+    std::optional<ern::EditorAction> action;
+    bool open = true, blocked = false;
+    const auto draw = [&] {
+        std::string text;
+        for (int i = 0; i < 3; ++i) {
+            ImGui::NewFrame();
+            ImGui::LogToBuffer();
+            ui.draw(view, blocked, action, open);
+            text = ImGui::GetCurrentContext()->LogBuffer.c_str();
+            ImGui::LogFinish();
+            ImGui::Render();
+        }
+        return text;
+    };
+    const auto activate = [&](const char *window, const char *label) {
+        const auto *exact = ImGui::FindWindowByName(window);
+        ImGui::ActivateItemByID(ImHashStr(label, 0, exact ? exact->ID : child(window).ID));
+        return draw();
+    };
+    const auto click = [&](float x, float y) {
+        auto &io = ImGui::GetIO();
+        io.AddMousePosEvent(x, y);
+        draw();
+        io.AddMouseButtonEvent(0, true);
+        draw();
+        io.AddMouseButtonEvent(0, false);
+        return draw();
+    };
+    const auto check_popup = [&](const std::string &text) {
+        require(child("##Popup_").Active &&
+                    text.find("| Game | " + view.version + " |") != std::string::npos &&
+                    text.find("| Editing | " + view.application_error + " |") != std::string::npos,
+                "Diagnostics did not show the last published session and the worker error");
+        activate("##Popup_", "Refresh");
+        require(!action && child("##Popup_").Active, "A stopped editor refreshed Diagnostics");
+        const auto closed = activate("##Popup_", "Close");
+        require(!child("##Popup_").Active &&
+                    closed.find(view.application_error) != std::string::npos,
+                "Closing Diagnostics did not return to the stopped page and its error");
+    };
+
+    draw();
+    if (presets) {
+        activate("Relic editor", "###page-navigation");
+        require(action && std::holds_alternative<ern::ReloadPresets>(*action),
+                "Opening Presets did not request a reload");
+        action.reset();
+        activate("/preset-preview_", "Delete preset");
+        require(!action && child("Delete preset?").Active,
+                "Preset deletion did not open its confirmation");
+        ImGui::ActivateItemByID(ImHashStr("Delete preset", 0, child("Delete preset?").ID));
+    } else {
+        activate("/page-content_", "Diagnostics");
+        require(child("##Popup_").Active, "The running editor could not open Diagnostics");
+        activate("##Popup_", "Refresh");
+        require(action && std::holds_alternative<ern::RefreshInspection>(*action),
+                "The running editor could not refresh Diagnostics");
+        action.reset();
+    }
+    blocked = true;
+    view.application_error = "The editor stopped: Injected polling failure";
+    const auto text = draw();
+    require(!action && open && text.find("Stopped") != std::string::npos &&
+                text.find("Updating...") == std::string::npos &&
+                text.find("Injected polling failure") != std::string::npos,
+            "The active page did not report the stopped worker and its error");
+    if (presets) {
+        require(!child("Delete preset?").Active && child("/preset-browser_").Active,
+                "Worker failure left a preset confirmation open or changed the active page");
+        activate("/preset-preview_", "Delete preset");
+        activate("/preset-preview_", "Load into drafts");
+        require(!action && ImGui::GetCurrentContext()->OpenPopupStack.empty(),
+                "The stopped Presets page still accepted preset operations");
+    } else {
+        check_popup(text);
+        require(!child("/effect-browser_").Active,
+                "The stopped Editor page still displayed edit controls");
+    }
+    const auto &io = ImGui::GetIO();
+    const auto bounds = ern::editor_bounds(io.DisplaySize.x, io.DisplaySize.y);
+    check_popup(
+        click(bounds.x + frame.appearance.space(15), bounds.height - frame.appearance.space(7)));
+    click(bounds.x + bounds.width - frame.appearance.space(16), frame.appearance.space(7));
+    require(!action && !open, "The stopped editor could not close the overlay");
 }
 
 void locked_relic_grid(float height) {
@@ -1464,6 +1570,8 @@ int main() {
             atlas_growth();
             refreshed_icon_atlas();
             offscreen_result_icons();
+            stopped_worker(720.f, false);
+            stopped_worker(720.f, true);
             for (const float height : {720.f, 900.f, 1080.f, 1440.f, 2160.f}) {
                 for (const bool deep : {false, true})
                     for (const bool wrapped : {false, true}) {

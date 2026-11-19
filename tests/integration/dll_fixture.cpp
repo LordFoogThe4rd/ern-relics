@@ -8,7 +8,7 @@ using View = std::shared_ptr<const ern::EditorView>;
 View request(ern::EditorAction action, View observed = {}) {
     auto &app = ern::application();
     const auto deadline = GetTickCount64() + 5000;
-    while (app.pending() && GetTickCount64() < deadline)
+    while (app.commands_blocked() && GetTickCount64() < deadline)
         Sleep(1);
     if (!observed)
         observed = app.view();
@@ -19,7 +19,7 @@ View request(ern::EditorAction action, View observed = {}) {
         return {};
     while (GetTickCount64() < deadline) {
         auto current = app.view();
-        if (!app.pending() && current && current->completion &&
+        if (!app.commands_blocked() && current && current->completion &&
             current->completion->operation == *operation)
             return current;
         Sleep(1);

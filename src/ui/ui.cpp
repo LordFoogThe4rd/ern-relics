@@ -147,9 +147,11 @@ void EditorUi::prepare_frame(const EditorView &view) {
     }
 }
 
-void EditorUi::draw(const EditorView &rt, bool pending, std::optional<EditorAction> &action,
-                    bool &open) {
-    consume(rt);
+void EditorUi::draw(const EditorView &rt, bool commands_blocked,
+                    std::optional<EditorAction> &action, bool &open) {
+    const bool stopped = rt.worker_stopped();
+    if (!stopped)
+        consume(rt);
     if (std::none_of(rt.presets->begin(), rt.presets->end(),
                      [this](const auto &entry) { return entry.name == browser_.selected; }))
         browser_.selected = rt.presets->empty() ? "" : rt.presets->front().name;
@@ -183,8 +185,10 @@ void EditorUi::draw(const EditorView &rt, bool pending, std::optional<EditorActi
     const float nav_width = appearance_.space(26), close_width = appearance_.space(26);
     ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - nav_width - close_width -
                          ImGui::GetStyle().ItemSpacing.x);
-    ImGui::BeginDisabled(pending || (page_ == Page::Editor && !rt.editing_supported()));
-    const char *navigation = pending                  ? "Updating...###page-navigation"
+    ImGui::BeginDisabled(stopped || commands_blocked ||
+                         (page_ == Page::Editor && !rt.editing_supported()));
+    const char *navigation = stopped                  ? "Stopped###page-navigation"
+                             : commands_blocked       ? "Updating...###page-navigation"
                              : page_ == Page::Presets ? "Editor###page-navigation"
                                                       : "Presets###page-navigation";
     if (ui::button(navigation, {nav_width, 0})) {
@@ -200,7 +204,7 @@ void EditorUi::draw(const EditorView &rt, bool pending, std::optional<EditorActi
         open = false;
     ui::vertical_gap(appearance_.space(2));
     ImGui::BeginChild("page-content", {0, 0});
-    ImGui::BeginDisabled(pending);
+    ImGui::BeginDisabled(commands_blocked && !stopped);
     if (page_ == Page::Presets)
         ui::draw_presets(rt, action, browser_, appearance_, equipped, editor);
     else

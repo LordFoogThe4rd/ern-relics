@@ -206,7 +206,7 @@ void render(IDXGISwapChain *chain) {
         r.graphics->render(
             chain, [&] { r.ui.prepare_frame(*view); },
             [&] {
-                r.ui.draw(*view, application().pending(), action, r.open);
+                r.ui.draw(*view, application().commands_blocked(), action, r.open);
                 set_input_capture(r.open, r.window);
             });
         if (action)

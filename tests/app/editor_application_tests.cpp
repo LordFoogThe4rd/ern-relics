@@ -84,14 +84,15 @@ template <typename Ready> View await(ern::EditorApplication &app, Ready ready) {
     throw std::runtime_error("The application worker did not publish the expected result");
 }
 View idle(ern::EditorApplication &app) {
-    return await(app, [&](const auto &) { return !app.pending(); });
+    return await(app, [&](const auto &) { return !app.commands_blocked(); });
 }
 View request(ern::EditorApplication &app, ern::EditorAction action, View observed = {}) {
     const auto current = idle(app);
     const auto operation = app.submit(*(observed ? observed : current), std::move(action));
     test::require(operation.has_value(), "An idle application refused a command");
     return await(app, [&](const auto &view) {
-        return !app.pending() && view.completion && view.completion->operation == *operation;
+        return !app.commands_blocked() && view.completion &&
+               view.completion->operation == *operation;
     });
 }
 const ern::EditorOutcome &outcome(const View &view) { return view->completion->outcome; }
@@ -120,7 +121,7 @@ void unsupported_preset_filenames() {
     app.initialize(fixture.environment());
     app.start();
     const auto initial = await(
-        app, [&](const auto &view) { return !app.pending() || !view.application_error.empty(); });
+        app, [&](const auto &view) { return !app.commands_blocked() || view.worker_stopped(); });
     test::require(initial->application_error.empty() && initial->editing_supported() &&
                       !initial->preset_error && initial->presets->size() == 1 &&
                       initial->presets->front().name == "demo" &&
@@ -390,7 +391,8 @@ void blocked_io_and_fresh_checks() {
     test::require(operation && reader_blocked && responsive && refused_second,
                   "Blocked storage stalled drawing/logging or accepted overlapping commands");
     const auto applied = await(app, [&](const auto &view) {
-        return !app.pending() && view.completion && view.completion->operation == *operation;
+        return !app.commands_blocked() && view.completion &&
+               view.completion->operation == *operation;
     });
     require_applied(applied);
     const auto &effects = applied->drafts[0]->effects;
@@ -524,10 +526,42 @@ void boundary_failures() {
         app.start();
         const auto stopped =
             await(app, [](const auto &view) { return !view.application_error.empty(); });
-        test::require(app.pending() && !stopped->editing_supported() &&
+        test::require(app.commands_blocked() && !stopped->editing_supported() &&
                           !app.submit(*stopped, ern::RefreshInspection{}),
                       "A stopped worker accepted commands or retained editing authority");
     }
+}
+
+void stopped_after_startup() {
+    Fixture fixture;
+    auto environment = fixture.environment();
+    std::atomic<bool> fail_read = false;
+    environment.read = [read = std::move(environment.read), &fail_read](auto address, auto output) {
+        if (fail_read)
+            throw std::runtime_error("Injected polling failure");
+        return read(address, output);
+    };
+    ern::EditorApplication app;
+    app.initialize(std::move(environment));
+    app.start();
+    const auto previous = idle(app);
+    test::require(previous->location == ern::EditLocation::RoundtableHold &&
+                      previous->editing_supported(),
+                  "The polling failure fixture was never ready");
+    fail_read = true;
+    const auto stopped =
+        await(app, [](const auto &view) { return !view.application_error.empty(); });
+    test::require(stopped->application_error.find("Injected polling failure") !=
+                          std::string::npos &&
+                      !stopped->editing_supported() && app.commands_blocked() &&
+                      !app.submit(*previous, ern::RefreshInspection{}) &&
+                      !app.submit(*stopped, ern::ReloadPresets{}),
+                  "A stopped worker lost the polling error or accepted a command");
+    test::require(stopped->session == previous->session &&
+                      stopped->location == previous->location &&
+                      stopped->rules == previous->rules && stopped->presets == previous->presets &&
+                      previous->application_error.empty() && previous->editing_supported(),
+                  "The terminal view did not preserve the last published diagnostics");
 }
 } // namespace
 
@@ -542,5 +576,6 @@ int main() {
             blocked_io_and_fresh_checks();
             display_assets_follow_accepted_rules();
             boundary_failures();
+            stopped_after_startup();
         });
 }

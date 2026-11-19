@@ -31,8 +31,11 @@ struct EditorView {
     const RelicCatalog &items() const { return rules->items(); }
     const GameAssets &assets() const { return *resources; }
     CatalogPresentation presentation() const { return {*rules, *resources}; }
-    bool editing_supported() const { return lock_reason.empty(); }
+    bool worker_stopped() const { return !application_error.empty(); }
+    bool editing_supported() const { return editing_lock_reason() == nullptr; }
     const char *editing_lock_reason() const {
+        if (worker_stopped())
+            return application_error.c_str();
         return lock_reason.empty() ? nullptr : lock_reason.c_str();
     }
     RelicValidation validate(std::uint32_t item, Effects effects) const {

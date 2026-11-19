@@ -1,5 +1,6 @@
 #include "ui/presets.hpp"
 #include "app/editor_view.hpp"
+#include "ui/diagnostics.hpp"
 #include "ui/edit_feedback.hpp"
 #include <algorithm>
 #include <cmath>
@@ -93,7 +94,7 @@ void preset_slot(const EditorView &rt, const Appearance &appearance, std::size_t
     ImGui::PopStyleVar();
 }
 void delete_dialog(std::optional<EditorAction> &action, PresetBrowser &browser,
-                   const Appearance &appearance, UiRect editor) {
+                   const Appearance &appearance, UiRect editor, bool stopped) {
     const float width = std::min(appearance.space(105), editor.width - appearance.space(10));
     ImGui::SetNextWindowPos({editor.x + editor.width / 2, editor.y + editor.height / 2},
                             ImGuiCond_Always, {.5f, .5f});
@@ -101,7 +102,10 @@ void delete_dialog(std::optional<EditorAction> &action, PresetBrowser &browser,
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
                         {std::round(appearance.space(4)), std::round(appearance.space(4))});
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, appearance.space(1));
-    if (ImGui::BeginPopupModal("Delete preset?", nullptr,
+    bool open = !stopped;
+    if (stopped)
+        browser.pending_delete.clear();
+    if (ImGui::BeginPopupModal("Delete preset?", &open,
                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                                    ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
         heading("Delete preset?", appearance.name_font);
@@ -128,7 +132,7 @@ void delete_dialog(std::optional<EditorAction> &action, PresetBrowser &browser,
 }
 
 void replace_dialog(std::optional<EditorAction> &action, PresetBrowser &browser,
-                    const Appearance &appearance, UiRect editor, bool can_save) {
+                    const Appearance &appearance, UiRect editor, bool can_save, bool stopped) {
     const float width = std::min(appearance.space(105), editor.width - appearance.space(10));
     ImGui::SetNextWindowPos({editor.x + editor.width / 2, editor.y + editor.height / 2},
                             ImGuiCond_Always, {.5f, .5f});
@@ -136,7 +140,10 @@ void replace_dialog(std::optional<EditorAction> &action, PresetBrowser &browser,
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
                         {std::round(appearance.space(4)), std::round(appearance.space(4))});
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, appearance.space(1));
-    if (ImGui::BeginPopupModal("Replace preset?", nullptr,
+    bool open = !stopped;
+    if (stopped)
+        browser.pending_replace.clear();
+    if (ImGui::BeginPopupModal("Replace preset?", &open,
                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                                    ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
         heading("Replace preset?", appearance.name_font);
@@ -170,6 +177,7 @@ void replace_dialog(std::optional<EditorAction> &action, PresetBrowser &browser,
 void draw_presets(const EditorView &rt, std::optional<EditorAction> &action, PresetBrowser &browser,
                   const Appearance &appearance, const EquippedRelics *equipped, UiRect editor) {
     const auto &style = ImGui::GetStyle();
+    const bool stopped = rt.worker_stopped();
     const float footer_y =
         ImGui::GetCursorPosY() + ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeight();
     ImGui::BeginChild("preset-browser",
@@ -270,10 +278,12 @@ void draw_presets(const EditorView &rt, std::optional<EditorAction> &action, Pre
         heading(title.c_str(), appearance.name_font, ImGui::GetFrameHeight());
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - buttons_width);
+        ImGui::BeginDisabled(stopped);
         if (button("Delete preset", {appearance.space(26), 0})) {
             browser.pending_delete = entry->name;
             ImGui::OpenPopup("Delete preset?");
         }
+        ImGui::EndDisabled();
         ImGui::SameLine();
         ImGui::BeginDisabled(!rt.editing_supported() || !count);
         if (primary_button("Load into drafts", {appearance.space(33), 0}))
@@ -307,12 +317,17 @@ void draw_presets(const EditorView &rt, std::optional<EditorAction> &action, Pre
     else
         empty_state(appearance, "Save your equipped relics",
                     "Give this setup a name below to create your first preset.");
-    delete_dialog(action, browser, appearance, editor);
+    delete_dialog(action, browser, appearance, editor, stopped);
     ImGui::EndChild();
     ImGui::EndChild();
     ImGui::SetCursorPosY(footer_y);
     const auto footer = ImGui::GetCursorScreenPos();
     const float footer_width = ImGui::GetContentRegionAvail().x;
+    if (stopped) {
+        draw_diagnostics(rt, action, appearance, equipped, std::nullopt, editor);
+        ImGui::SameLine();
+    }
+    ImGui::BeginDisabled(stopped);
     ImGui::AlignTextToFramePadding();
     ImGui::TextColored(muted, "Save equipped effects");
     ImGui::SameLine();
@@ -345,7 +360,8 @@ void draw_presets(const EditorView &rt, std::optional<EditorAction> &action, Pre
             action = SavePreset{browser.name};
     }
     ImGui::EndDisabled();
-    replace_dialog(action, browser, appearance, editor, can_save);
+    ImGui::EndDisabled();
+    replace_dialog(action, browser, appearance, editor, can_save, stopped);
     if (const auto *reason = rt.editing_lock_reason()) {
         auto locked = read_only_notice(reason);
         notification(locked, appearance, {footer.x, footer.y, footer_width, 0});

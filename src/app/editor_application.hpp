@@ -14,7 +14,7 @@ class EditorApplication {
     void initialize(RuntimeEnvironment environment);
     void start();
     std::shared_ptr<const EditorView> view() const { return view_.load(); }
-    bool pending() const { return phase_.load() != Phase::Idle; }
+    bool commands_blocked() const { return phase_.load() != Phase::Idle; }
     std::optional<OperationId> submit(const EditorView &observed, EditorAction action);
     void log(std::string_view message);
     void flush_startup_log() { log_.flush(); }
@@ -28,7 +28,7 @@ class EditorApplication {
         EditorAction action;
     };
     void run(std::stop_token stop);
-    void publish(std::string error = {});
+    std::shared_ptr<EditorView> snapshot();
     void reload_presets();
     EditorOutcome execute(const Request &request);
     EditorOutcome handle(const RefreshInspection &);

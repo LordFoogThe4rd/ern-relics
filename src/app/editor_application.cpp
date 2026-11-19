@@ -49,6 +49,7 @@ std::optional<OperationId> EditorApplication::submit(const EditorView &observed,
     return operation;
 }
 void EditorApplication::run(std::stop_token stop) {
+    std::string failure;
     try {
         log_.flush();
         runtime_.initialize(std::move(*environment_));
@@ -58,7 +59,7 @@ void EditorApplication::run(std::stop_token stop) {
         runtime_.refresh();
         reload_presets();
         runtime_.prepare_assets();
-        publish();
+        view_.store(snapshot());
         phase_.store(Phase::Idle);
         while (!stop.stop_requested()) {
             std::optional<Request> request;
@@ -87,16 +88,26 @@ void EditorApplication::run(std::stop_token stop) {
                     completion_.reset();
             }
             runtime_.prepare_assets();
-            publish();
+            view_.store(snapshot());
             if (request)
                 phase_.store(Phase::Idle);
             log_.flush();
         }
     } catch (const std::exception &error) {
-        log(std::string("Application worker stopped: ") + error.what());
-        publish(std::string("The editor stopped: ") + error.what());
+        failure = std::string("The editor stopped: ") + error.what();
     }
-    phase_.store(Phase::Stopped);
+    {
+        // Close submission before exposing the failure, including to frames with an older view.
+        std::lock_guard lock(mutex_);
+        phase_.store(Phase::Stopped);
+    }
+    if (!failure.empty()) {
+        const auto previous = view();
+        auto stopped = previous ? std::make_shared<EditorView>(*previous) : snapshot();
+        stopped->application_error = failure;
+        view_.store(std::move(stopped));
+        log(failure);
+    }
     log_.flush();
 }
 const EquippedRelics *EditorApplication::equipped() const {
@@ -211,7 +222,7 @@ EditorOutcome EditorApplication::handle(const LoadPreset &action) {
                                                             runtime_.rule_context()),
                               count};
 }
-void EditorApplication::publish(std::string error) {
+std::shared_ptr<EditorView> EditorApplication::snapshot() {
     auto next = std::make_shared<EditorView>();
     next->session = runtime_.session();
     next->rules = runtime_.rules();
@@ -226,10 +237,6 @@ void EditorApplication::publish(std::string error) {
     next->rule_diagnostics = runtime_.rule_diagnostics();
     if (const auto *reason = runtime_.editing_lock_reason())
         next->lock_reason = reason;
-    if (!error.empty()) {
-        next->application_error = error;
-        next->lock_reason = std::move(error);
-    }
     next->version = runtime_.version();
     next->source_label = runtime_.source_label();
     next->source_hash = runtime_.source_hash();
@@ -241,6 +248,6 @@ void EditorApplication::publish(std::string error) {
     next->presets = presets_;
     next->preset_error = preset_error_;
     next->completion = completion_;
-    view_.store(std::move(next));
+    return next;
 }
 } // namespace ern

@@ -9,7 +9,7 @@ class EditorUi {
   public:
     void initialize(const EditorView &view, float display_height);
     void prepare_frame(const EditorView &view);
-    void draw(const EditorView &view, bool pending, std::optional<EditorAction> &action,
+    void draw(const EditorView &view, bool commands_blocked, std::optional<EditorAction> &action,
               bool &open);
 
   private:
