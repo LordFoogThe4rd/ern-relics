@@ -82,10 +82,9 @@ and Ninja once per PowerShell session:
 
 This changes only the current process environment. It selects the x64 compiler
 from the MSVC toolset pinned in `.vsconfig`, plus Windows SDK 10.0.26100, and keeps
-the caller directory unchanged. Local builds, CI, and releases use this same
-selection. The pin follows a stable toolset supplied by the hosted Windows runner
-so CI does not install a separate compiler. Newer defaults do not override the pin. Servicing patches
-within the selected toolset are allowed, so matching toolsets do not guarantee
+the caller directory unchanged. Local builds, CI, and releases use this selection
+even when Visual Studio defaults to a newer compiler. The pin allows servicing
+patches within the selected toolset, so matching toolsets do not guarantee
 identical package hashes.
 
 After changing toolsets, reconfigure each existing build directory once with
@@ -181,8 +180,15 @@ and both sides of renames. Missing history and manual runs select Windows checks
 Unknown paths also select Windows checks. CI tests this selection with local Git
 fixtures through `uv run --locked python -m tests.tooling.ci_changes_tests`.
 
-The [shared native setup](../.github/actions/setup-native/action.yml) caches uv
-packages, native dependency checkouts keyed by `sources.lock.json`, and the pinned
+The [shared native setup](../.github/actions/setup-native/action.yml) tries the
+source checkout's native shell first. On GitHub-hosted runners, it provisions
+missing Visual Studio components from that checkout's `.vsconfig` and retries
+activation before the build. It uses Visual Studio 2026 Build Tools on the
+18.11 LTSC channel if the runner lacks a compatible installation. The ASan and
+release jobs also require the selected compiler's AddressSanitizer runtime.
+
+The shared setup caches uv packages, native dependency checkouts keyed by
+`sources.lock.json`, and the pinned
 LLVM analyzer and builtin headers. Native-source setup validates cached dependency
 origins, commits, and clean working trees. Ordinary builds skip LLVM setup.
 Local checks and native presets reuse `.build/`; CI supplies fresh runner paths.
@@ -258,8 +264,9 @@ code or attribution changes.
 
 To update the compiler, change the versioned MSVC component in `.vsconfig`, import
 it into Visual Studio Installer, and activate a fresh PowerShell session. Select a
-stable toolset available on the CI runner. Shell activation and CMake read this
-same pin. Verify Release, clang-tidy, and AddressSanitizer before merging.
+stable toolset available through the CI runner's installer. Check that the Build
+Tools fallback channel also offers that toolset. Shell activation and CMake read
+the same pin. Verify Release, clang-tidy, and AddressSanitizer before merging.
 
 When changing the clang-format pin, update the matching LLVM archive checksum
 in [the LLVM setup script](../tools/setup/llvm.py).

@@ -99,8 +99,8 @@ jobs:
           persist-credentials: false
       - name: Validate tagged setup commands
         run: |
-          foreach ($script in @('setup/llvm.py', 'setup/sources.py', 'setup/shell.ps1', 'check.py')) {
-              if (-not (Test-Path -LiteralPath "source/tools/$script" -PathType Leaf)) {
+          foreach ($path in @('.vsconfig', 'tools/setup/environment.ps1', 'tools/setup/llvm.py', 'tools/setup/sources.py', 'tools/setup/shell.ps1', 'tools/check.py')) {
+              if (-not (Test-Path -LiteralPath "source/$path" -PathType Leaf)) {
                   throw "Release tag $env:RELEASE_TAG uses an unsupported setup. Select a tag containing the Python tooling and native shell activation."
               }
           }
@@ -108,6 +108,7 @@ jobs:
         uses: ./tooling/.github/actions/setup-native
         with:
           analysis: "true"
+          asan: "true"
           working-directory: source
       - name: Check tagged source
         working-directory: source

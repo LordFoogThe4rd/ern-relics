@@ -104,6 +104,8 @@ jobs:
           persist-credentials: false
       - name: Set up native checks
         uses: ./.github/actions/setup-native
+        with:
+          asan: "true"
       - name: Check AddressSanitizer
         run: |
           ./tools/setup/shell.ps1
