@@ -1124,8 +1124,16 @@ void sequential_choices(float height) {
     state.selected_effect = {1, ern::EffectField::Effect};
     draw_editor(frame, view, state);
     require(result_icons() == 6, "An earlier effect without its required curse hid later choices");
-    state.invalid = true;
+}
+
+void invalid_effect_choices() {
+    auto view = fixture(true, false);
+    // Tall frame keeps every row on screen; clipped rows skip their artwork.
+    Frame frame(4000.f, view);
+    ern::ui::EditorState state;
+    state.selected = 3;
     state.selected_effect = {1, ern::EffectField::Effect};
+    state.invalid = true;
     draw_editor(frame, view, state);
     require(result_icons() == static_cast<std::ptrdiff_t>(view.rules->effects().size()),
             "Invalid mode did not enable every effect");
@@ -1575,6 +1583,7 @@ int main() {
             atlas_growth();
             refreshed_icon_atlas();
             offscreen_result_icons();
+            invalid_effect_choices();
             stopped_worker(720.f, false);
             stopped_worker(720.f, true);
             for (const float height : {720.f, 900.f, 1080.f, 1440.f, 2160.f}) {
